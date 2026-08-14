@@ -5,7 +5,7 @@
 
 const CACHE_NAME = "shaman-tickets-v1";
 const APP_SHELL = [
-  "./client.html",
+  "./index.html",
   "./manifest.json",
   "./icon-192.png",
   "./icon-512.png"
@@ -33,6 +33,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
   event.respondWith(
-    caches.match(event.request).then((cached) => cached || fetch(event.request).catch(() => caches.match("./client.html")))
+    caches.match(event.request).then((cached) => cached || fetch(event.request).catch(() => caches.match("./index.html")))
   );
 });

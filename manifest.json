@@ -2,7 +2,7 @@
   "name": "ACHAT EN LIGNE CODES TICKETS SHAMAN CHOOZ PRODUCTION",
   "short_name": "Tickets SHAMAN",
   "description": "Achetez vos codes tickets Wi-Fi 6 SHAMAN Hotspot en ligne via Wave",
-  "start_url": "client.html",
+  "start_url": "index.html",
   "display": "standalone",
   "background_color": "#0B3D91",
   "theme_color": "#0B3D91",
