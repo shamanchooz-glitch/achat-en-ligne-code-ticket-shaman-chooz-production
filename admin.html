@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SHAMAN — Admin Tickets Wi-Fi</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  Même config Firebase que client.html — à remplir
+============================================================= -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, getDocs,
+           onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "REMPLACER_apiKey",
+    authDomain: "REMPLACER.firebaseapp.com",
+    projectId: "REMPLACER_projectId",
+    storageBucket: "REMPLACER.appspot.com",
+    messagingSenderId: "REMPLACER",
+    appId: "REMPLACER"
+  };
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.__db = db;
+  window.__fb = { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit };
+</script>
+
+<!-- ============================================================
+  MOT DE PASSE ADMIN — changez cette valeur avant mise en ligne
+============================================================= -->
+<script>
+  const ADMIN_PASSWORD = "Shaman123chooz";
+</script>
+
+<style>
+  :root{
+    --blue-deep:#0B3D91; --blue-mid:#1653B8; --ink:#0B1B33;
+    --paper:#F5F8FC; --signal:#2ED9A0; --ticket:#FFB020; --line:#D8E1F0;
+    --danger:#E4535C;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Inter',sans-serif;background:var(--paper);color:var(--ink);}
+  h1,h2{font-family:'Space Grotesk',sans-serif;}
+
+  #lockScreen{
+    min-height:100vh;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(160deg,var(--blue-deep),var(--blue-mid));
+    padding:20px;
+  }
+  .lock-card{background:#fff;border-radius:16px;padding:28px;max-width:340px;width:100%;text-align:center;}
+  .lock-card h1{font-size:18px;margin:0 0 4px;}
+  .lock-card p{font-size:13px;color:#5A6B8C;margin:0 0 18px;}
+  .lock-card input{width:100%;padding:12px 14px;border-radius:10px;border:1px solid var(--line);font-size:16px;text-align:center;letter-spacing:2px;}
+  .lock-card button{width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--blue-deep);color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
+  .lock-err{color:var(--danger);font-size:12px;margin-top:10px;display:none;}
+
+  #app{display:none;}
+  header.top{
+    background:var(--blue-deep);color:#fff;padding:20px;
+    display:flex;justify-content:space-between;align-items:center;
+  }
+  header.top h1{font-size:16px;margin:0;}
+  header.top .sub{font-size:11px;opacity:.7;}
+  main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
+
+  .stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin-bottom:26px;}
+  .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;}
+  .stat .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--blue-deep);}
+  .stat .l{font-size:11px;color:#5A6B8C;text-transform:uppercase;letter-spacing:.5px;}
+
+  .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px;}
+  .card h2{font-size:15px;margin:0 0 12px;}
+
+  .order-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap;}
+  .order-row:last-child{border-bottom:none;}
+  .order-info b{font-family:'IBM Plex Mono',monospace;}
+  .order-info .meta{font-size:11px;color:#5A6B8C;}
+  .order-actions button{border:none;border-radius:8px;padding:8px 12px;font-size:12px;font-weight:700;cursor:pointer;margin-left:6px;}
+  .btn-valid{background:var(--signal);color:#04241a;}
+  .btn-refuse{background:#FDEBEC;color:var(--danger);}
+  .empty{color:#8092B0;font-size:13px;text-align:center;padding:16px 0;}
+
+  textarea{width:100%;min-height:90px;border-radius:10px;border:1px solid var(--line);padding:10px 12px;font-family:'IBM Plex Mono',monospace;font-size:13px;}
+  select{padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;}
+  .import-row{display:flex;gap:10px;align-items:center;margin-top:10px;flex-wrap:wrap;}
+  .btn-primary{background:var(--blue-deep);color:#fff;border:none;border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th{text-align:left;font-size:11px;text-transform:uppercase;color:#5A6B8C;padding:6px 8px;border-bottom:1px solid var(--line);}
+  td{padding:8px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;}
+  .badge{font-size:10px;padding:3px 8px;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;}
+  .badge.stock{background:#E9F1FF;color:var(--blue-mid);}
+  .badge.vendu{background:#FFF3DA;color:#8A5A00;}
+  .badge.utilise{background:#E6FBF3;color:#0A6B4A;}
+  .row-action{border:none;background:none;color:var(--blue-mid);font-size:11px;cursor:pointer;text-decoration:underline;}
+
+  .btn-trash{
+    background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);
+    border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;
+    display:flex;align-items:center;gap:6px;
+  }
+  #trashModal{
+    display:none;position:fixed;inset:0;background:rgba(6,15,32,.55);z-index:998;
+    align-items:flex-start;justify-content:center;padding:40px 16px;
+  }
+  #trashModal.show{display:flex;}
+  .trash-card{
+    background:#fff;border-radius:16px;padding:20px;max-width:560px;width:100%;max-height:80vh;
+    display:flex;flex-direction:column;
+  }
+  .trash-card .trash-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
+  .trash-card h2{margin:0;font-size:15px;}
+  .trash-close{border:none;background:none;font-size:20px;cursor:pointer;color:#5A6B8C;line-height:1;}
+  .trash-sub{font-size:12px;color:#5A6B8C;margin:0 0 12px;}
+  .trash-list{overflow-y:auto;flex:1;border-top:1px solid var(--line);}
+  .trash-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);gap:8px;}
+  .trash-row .code{font-family:'IBM Plex Mono',monospace;font-weight:600;}
+  .trash-row .meta{font-size:11px;color:#5A6B8C;}
+  .btn-del{border:none;background:#FDEBEC;color:var(--danger);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
+  .btn-del-all{border:none;background:var(--danger);color:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;}
+  .btn-del-all:disabled{background:#DDE3EE;cursor:default;}
+</style>
+</head>
+<body>
+
+<div id="lockScreen">
+  <div class="lock-card">
+    <h1>Admin — Tickets Wi-Fi</h1>
+    <p>SHAMAN CHOOZ PRODUCTION</p>
+    <input id="pwInput" type="password" placeholder="Mot de passe" autocomplete="off">
+    <button onclick="checkPassword()">Entrer</button>
+    <div class="lock-err" id="pwErr">Mot de passe incorrect.</div>
+  </div>
+</div>
+
+<div id="app">
+  <header class="top">
+    <div>
+      <h1>Tableau de bord — Tickets Wi-Fi</h1>
+      <div class="sub">WI-FI 6 SHAMAN HOTSPOT</div>
+    </div>
+    <button class="btn-trash" onclick="document.getElementById('trashModal').classList.add('show')">🗑️ Corbeille</button>
+  </header>
+
+  <div id="trashModal">
+    <div class="trash-card">
+      <div class="trash-head">
+        <h2>Tickets vendus et utilisés</h2>
+        <button class="trash-close" onclick="document.getElementById('trashModal').classList.remove('show')">✕</button>
+      </div>
+      <p class="trash-sub">Retrouvez ici tous les codes déjà vendus ou utilisés. Supprimez-les un par un, ou tous en une fois.</p>
+      <div class="trash-list" id="trashList"><div class="empty">Aucun ticket vendu ou utilisé pour l'instant.</div></div>
+      <button class="btn-del-all" id="btnDelAll" disabled onclick="viderCorbeille()">Tout supprimer</button>
+    </div>
+  </div>
+
+  <main>
+    <div class="stats" id="statsBox"></div>
+
+    <div class="card">
+      <h2>Paiements en attente de validation</h2>
+      <div id="ordersList"><div class="empty">Aucune demande en attente pour le moment.</div></div>
+    </div>
+
+    <div class="card">
+      <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
+      <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Collez les codes, un par ligne (ex : 62966, 43545, 54844...).</p>
+      <div class="import-row">
+        <select id="importForfait"></select>
+      </div>
+      <textarea id="importCodes" placeholder="62966&#10;43545&#10;54844"></textarea>
+      <div class="import-row">
+        <button class="btn-primary" onclick="importCodes()">Ajouter au stock</button>
+        <span id="importMsg" style="font-size:12px;color:#0A6B4A;"></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Stock de tickets</h2>
+      <table>
+        <thead><tr><th>Code</th><th>Forfait</th><th>Statut</th><th>Ajouté</th><th></th></tr></thead>
+        <tbody id="ticketsTable"></tbody>
+      </table>
+    </div>
+  </main>
+</div>
+
+<script type="module">
+  const FORFAITS = [
+    { id:"1h", label:"1 HEURE", prix:100 },
+    { id:"1j", label:"1 JOUR", prix:300 },
+    { id:"2j", label:"2 JOURS", prix:400 },
+    { id:"3j", label:"3 JOURS", prix:500 },
+    { id:"4j", label:"4 JOURS", prix:600 },
+    { id:"1s", label:"1 SEMAINE", prix:1000 },
+    { id:"2s", label:"2 SEMAINES", prix:1500 },
+    { id:"3s", label:"3 SEMAINES", prix:2000 },
+    { id:"1m", label:"1 MOIS", prix:3000 },
+  ];
+
+  window.checkPassword = function(){
+    const val = document.getElementById('pwInput').value;
+    if(val === ADMIN_PASSWORD){
+      document.getElementById('lockScreen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      boot();
+    } else {
+      document.getElementById('pwErr').style.display = 'block';
+    }
+  };
+  document.getElementById('pwInput').addEventListener('keydown', e=>{ if(e.key==='Enter') window.checkPassword(); });
+
+  const importForfait = document.getElementById('importForfait');
+  FORFAITS.forEach(f=>{
+    const o = document.createElement('option');
+    o.value = f.id;
+    o.textContent = `${f.label} — ${f.prix} FCFA`;
+    importForfait.appendChild(o);
+  });
+
+  function boot(){
+    const { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit } = window.__fb;
+    const db = window.__db;
+
+    // --- Commandes en attente, en temps réel ---
+    const ordersQ = query(collection(db,"orders"), where("statut","==","attente"));
+    onSnapshot(ordersQ, snap=>{
+      const list = document.getElementById('ordersList');
+      if(snap.empty){ list.innerHTML = '<div class="empty">Aucune demande en attente pour le moment.</div>'; return; }
+      list.innerHTML = '';
+      snap.forEach(d=>{
+        const o = d.data();
+        const row = document.createElement('div');
+        row.className = 'order-row';
+        row.innerHTML = `
+          <div class="order-info">
+            <b>${o.phone}</b> — ${o.forfaitLabel} (${o.montant} FCFA)
+            <div class="meta">Vérifiez ce paiement dans votre appli Wave avant de valider.</div>
+          </div>
+          <div class="order-actions">
+            <button class="btn-valid">Valider</button>
+            <button class="btn-refuse">Refuser</button>
+          </div>`;
+        row.querySelector('.btn-valid').onclick = ()=>validateOrder(d.id, o);
+        row.querySelector('.btn-refuse').onclick = async ()=>{
+          await updateDoc(doc(db,"orders",d.id), { statut:"refusee" });
+        };
+        list.appendChild(row);
+      });
+    });
+
+    async function validateOrder(orderId, order){
+      // Prend le prochain ticket "stock" du bon forfait
+      const q = query(collection(db,"tickets"), where("forfaitId","==",order.forfaitId), where("statut","==","stock"), limit(1));
+      const snap = await getDocs(q);
+      if(snap.empty){
+        alert("Aucun code disponible pour ce forfait. Importez du stock avant de valider.");
+        return;
+      }
+      const ticketDoc = snap.docs[0];
+      await updateDoc(doc(db,"tickets",ticketDoc.id), {
+        statut:"vendu",
+        vendPhone: order.phone,
+        vendAt: serverTimestamp()
+      });
+      await updateDoc(doc(db,"orders",orderId), {
+        statut:"validee",
+        ticketCode: ticketDoc.data().code,
+        validatedAt: serverTimestamp()
+      });
+    }
+
+    // --- Import de codes ---
+    window.importCodes = async function(){
+      const raw = document.getElementById('importCodes').value;
+      const forfaitId = importForfait.value;
+      const codes = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+      if(codes.length === 0) return;
+      const batch = writeBatch(db);
+      codes.forEach(code=>{
+        const ref = doc(collection(db,"tickets"));
+        batch.set(ref, { code, forfaitId, statut:"stock", createdAt: serverTimestamp() });
+      });
+      await batch.commit();
+      document.getElementById('importCodes').value = '';
+      document.getElementById('importMsg').textContent = `${codes.length} code(s) ajouté(s) au stock.`;
+      setTimeout(()=>document.getElementById('importMsg').textContent='', 3000);
+    };
+
+    // --- Table + stats des tickets, en temps réel ---
+    onSnapshot(collection(db,"tickets"), snap=>{
+      const rows = [];
+      let stock=0, vendu=0, utilise=0;
+      const THIRTY_DAYS = 30*24*60*60*1000;
+      const now = Date.now();
+
+      snap.forEach(d=>{
+        const t = d.data();
+        if(t.statut==='stock') stock++;
+        if(t.statut==='vendu') vendu++;
+        if(t.statut==='utilise') utilise++;
+
+        // Nettoyage : supprime les tickets vendus/utilisés depuis plus de 30 jours
+        // (s'exécute quand ce tableau de bord est ouvert ; pour un nettoyage
+        // garanti même app fermée, ajouter une Firebase Scheduled Function — voir README)
+        const created = t.createdAt?.toMillis ? t.createdAt.toMillis() : now;
+        if((t.statut==='vendu' || t.statut==='utilise') && (now-created) > THIRTY_DAYS){
+          deleteDoc(doc(db,"tickets",d.id));
+          return;
+        }
+
+        const forfait = FORFAITS.find(f=>f.id===t.forfaitId);
+        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created });
+      });
+
+      rows.sort((a,b)=>b.created-a.created);
+      const tbody = document.getElementById('ticketsTable');
+      tbody.innerHTML = rows.slice(0,60).map(r=>`
+        <tr>
+          <td>${r.code}</td>
+          <td>${r.forfait}</td>
+          <td><span class="badge ${r.statut}">${r.statut}</span></td>
+          <td>${new Date(r.created).toLocaleDateString('fr-FR')}</td>
+          <td>${r.statut==='vendu' ? `<button class="row-action" data-id="${r.id}">Marquer utilisé</button>` : ''}</td>
+        </tr>`).join('');
+
+      tbody.querySelectorAll('.row-action').forEach(btn=>{
+        btn.onclick = ()=> updateDoc(doc(db,"tickets",btn.dataset.id), { statut:"utilise", usedAt: serverTimestamp() });
+      });
+
+      document.getElementById('statsBox').innerHTML = `
+        <div class="stat"><div class="n">${stock}</div><div class="l">En stock</div></div>
+        <div class="stat"><div class="n">${vendu}</div><div class="l">Vendus</div></div>
+        <div class="stat"><div class="n">${utilise}</div><div class="l">Utilisés</div></div>`;
+    });
+
+    // --- Corbeille : tickets vendus + utilisés, gérables et supprimables manuellement ---
+    const trashQ = query(collection(db,"tickets"), where("statut","in",["vendu","utilise"]));
+    let trashIds = [];
+    onSnapshot(trashQ, snap=>{
+      const list = document.getElementById('trashList');
+      const btnAll = document.getElementById('btnDelAll');
+      if(snap.empty){
+        list.innerHTML = '<div class="empty">Aucun ticket vendu ou utilisé pour l\'instant.</div>';
+        btnAll.disabled = true;
+        trashIds = [];
+        return;
+      }
+      const rows = [];
+      trashIds = [];
+      snap.forEach(d=>{
+        const t = d.data();
+        trashIds.push(d.id);
+        const forfait = FORFAITS.find(f=>f.id===t.forfaitId);
+        const created = t.createdAt?.toMillis ? t.createdAt.toMillis() : Date.now();
+        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, phone:t.vendPhone||'', created });
+      });
+      rows.sort((a,b)=>b.created-a.created);
+      list.innerHTML = rows.map(r=>`
+        <div class="trash-row">
+          <div>
+            <span class="code">${r.code}</span> — ${r.forfait}
+            <div class="meta">${r.statut === 'utilise' ? 'Utilisé' : 'Vendu'}${r.phone ? ' · ' + r.phone : ''} · ${new Date(r.created).toLocaleDateString('fr-FR')}</div>
+          </div>
+          <button class="btn-del" data-id="${r.id}">Supprimer</button>
+        </div>`).join('');
+      list.querySelectorAll('.btn-del').forEach(btn=>{
+        btn.onclick = ()=> deleteDoc(doc(db,"tickets",btn.dataset.id));
+      });
+      btnAll.disabled = false;
+    });
+
+    window.viderCorbeille = async function(){
+      if(trashIds.length === 0) return;
+      if(!confirm(`Supprimer définitivement ${trashIds.length} ticket(s) vendu(s)/utilisé(s) ?`)) return;
+      const batch = writeBatch(db);
+      trashIds.forEach(id => batch.delete(doc(db,"tickets",id)));
+      await batch.commit();
+    };
+  }
+</script>
+
+</body>
+</html>

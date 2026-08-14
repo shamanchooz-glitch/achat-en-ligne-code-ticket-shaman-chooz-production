@@ -1,0 +1,519 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACHAT EN LIGNE CODES TICKETS SHAMAN CHOOZ PRODUCTION</title>
+<meta name="theme-color" content="#0B3D91">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+
+<!-- ============================================================
+  CONFIGURATION FIREBASE — à remplir avec les clés de votre projet
+  (Console Firebase > Paramètres du projet > Vos applications > Config)
+  Vous pouvez réutiliser le même projet Firebase que votre autre
+  application ("pour-paiement-shaman-chooz") : ajoutez juste ces
+  nouvelles collections, pas besoin d'un nouveau projet.
+============================================================= -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, onSnapshot, query, where, serverTimestamp }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "REMPLACER_apiKey",
+    authDomain: "REMPLACER.firebaseapp.com",
+    projectId: "REMPLACER_projectId",
+    storageBucket: "REMPLACER.appspot.com",
+    messagingSenderId: "REMPLACER",
+    appId: "REMPLACER"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  window.__db = db;
+  window.__fb = { collection, addDoc, onSnapshot, query, where, serverTimestamp };
+</script>
+
+<style>
+  :root{
+    --blue-deep:#0B3D91;
+    --blue-mid:#1653B8;
+    --ink:#0B1B33;
+    --paper:#F5F8FC;
+    --signal:#2ED9A0;
+    --ticket:#FFB020;
+    --line:#D8E1F0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:'Inter',sans-serif;
+    background:linear-gradient(180deg,var(--blue-deep) 0%,var(--blue-mid) 340px,var(--paper) 340px);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  header{
+    padding:28px 20px 20px;
+    text-align:center;
+    color:#fff;
+  }
+  .brand-row{
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .brand-photo{
+    width:46px;
+    height:46px;
+    border-radius:50%;
+    border:2px solid var(--signal);
+    object-fit:cover;
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .brand-name{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:14px;
+    text-align:left;
+    line-height:1.25;
+    letter-spacing:.3px;
+  }
+  #photoModal{
+    display:none;
+    position:fixed;
+    inset:0;
+    background:rgba(6,15,32,.92);
+    z-index:999;
+    align-items:center;
+    justify-content:center;
+  }
+  #photoModal.show{display:flex;}
+  #photoModal img{
+    max-width:88vw;
+    max-height:88vh;
+    border-radius:12px;
+  }
+  .signal{
+    display:flex;
+    justify-content:center;
+    gap:4px;
+    margin-bottom:14px;
+  }
+  .signal span{
+    width:6px;
+    background:var(--signal);
+    border-radius:2px;
+    animation:pulse 1.6s ease-in-out infinite;
+  }
+  .signal span:nth-child(1){height:10px;animation-delay:0s;}
+  .signal span:nth-child(2){height:16px;animation-delay:.15s;}
+  .signal span:nth-child(3){height:22px;animation-delay:.3s;}
+  .signal span:nth-child(4){height:28px;animation-delay:.45s;}
+  @keyframes pulse{0%,100%{opacity:.35;}50%{opacity:1;}}
+  h1{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:26px;
+    letter-spacing:.5px;
+    margin:0 0 6px;
+  }
+  header p{
+    margin:0;
+    font-size:14px;
+    opacity:.85;
+  }
+  main{
+    max-width:480px;
+    margin:0 auto;
+    padding:0 16px 60px;
+  }
+  .section-label{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:13px;
+    text-transform:uppercase;
+    letter-spacing:1.5px;
+    color:var(--blue-mid);
+    margin:26px 2px 12px;
+  }
+  .tickets{
+    display:grid;
+    gap:14px;
+  }
+  .ticket{
+    position:relative;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    background:#fff;
+    border-radius:14px;
+    padding:16px 18px;
+    text-decoration:none;
+    color:var(--ink);
+    box-shadow:0 1px 2px rgba(11,27,51,.06), 0 8px 20px -12px rgba(11,27,51,.18);
+    border:1px solid var(--line);
+    transition:transform .15s ease, box-shadow .15s ease;
+  }
+  .ticket:active{transform:scale(.98);}
+  .ticket::after{
+    content:"";
+    position:absolute;
+    right:86px;
+    top:0;
+    bottom:0;
+    width:0;
+    border-right:2px dashed var(--line);
+  }
+  .ticket .stub-hole{
+    position:absolute;
+    right:82px;
+    width:10px;
+    height:10px;
+    border-radius:50%;
+    background:var(--paper);
+  }
+  .ticket .stub-hole.top{top:-5px;}
+  .ticket .stub-hole.bottom{bottom:-5px;}
+  .t-left .duree{
+    font-family:'Space Grotesk',sans-serif;
+    font-weight:700;
+    font-size:16px;
+  }
+  .t-left .valid{
+    font-size:12px;
+    color:#5A6B8C;
+    margin-top:2px;
+  }
+  .t-right{
+    text-align:right;
+    padding-left:20px;
+  }
+  .t-right .prix{
+    font-family:'IBM Plex Mono',monospace;
+    font-weight:600;
+    font-size:17px;
+    color:var(--blue-deep);
+  }
+  .t-right .fcfa{
+    font-size:10px;
+    color:#8092B0;
+    letter-spacing:.5px;
+  }
+  .t-right .go{
+    display:inline-flex;
+    align-items:center;
+    gap:4px;
+    margin-top:6px;
+    font-size:11px;
+    font-weight:600;
+    color:var(--signal);
+  }
+
+  .confirm-box{
+    margin-top:34px;
+    background:#fff;
+    border-radius:16px;
+    padding:20px;
+    border:1px solid var(--line);
+  }
+  .confirm-box h2{
+    font-family:'Space Grotesk',sans-serif;
+    font-size:16px;
+    margin:0 0 4px;
+  }
+  .confirm-box p{
+    font-size:13px;
+    color:#5A6B8C;
+    margin:0 0 16px;
+    line-height:1.5;
+  }
+  label{
+    display:block;
+    font-size:12px;
+    font-weight:600;
+    color:var(--blue-deep);
+    margin:14px 0 6px;
+  }
+  select, input{
+    width:100%;
+    padding:12px 14px;
+    border-radius:10px;
+    border:1px solid var(--line);
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    background:var(--paper);
+  }
+  button.primary{
+    width:100%;
+    margin-top:18px;
+    padding:14px;
+    border:none;
+    border-radius:10px;
+    background:var(--signal);
+    color:#04241a;
+    font-weight:700;
+    font-size:15px;
+    font-family:'Inter',sans-serif;
+    cursor:pointer;
+  }
+  button.primary:active{opacity:.85;}
+  button.primary:disabled{background:#B9C4D6;color:#fff;cursor:default;}
+
+  .status-msg{
+    margin-top:14px;
+    padding:14px;
+    border-radius:10px;
+    font-size:13px;
+    line-height:1.5;
+    display:none;
+  }
+  .status-msg.show{display:block;}
+  .status-wait{background:#FFF6E5;border:1px solid #FFD98A;color:#7A5300;}
+  .status-ok{background:#E6FBF3;border:1px solid #9CEBCB;color:#0A6B4A;}
+
+  .code-reveal{
+    margin-top:14px;
+    background:var(--blue-deep);
+    color:#fff;
+    border-radius:12px;
+    padding:18px;
+    text-align:center;
+  }
+  .code-reveal .lbl{
+    font-size:11px;
+    letter-spacing:1.5px;
+    text-transform:uppercase;
+    opacity:.75;
+  }
+  .code-reveal .code{
+    font-family:'IBM Plex Mono',monospace;
+    font-size:30px;
+    font-weight:600;
+    letter-spacing:3px;
+    margin:8px 0;
+  }
+  .wa-btn{
+    display:inline-flex;
+    align-items:center;
+    gap:8px;
+    margin-top:10px;
+    background:var(--signal);
+    color:#04241a;
+    text-decoration:none;
+    padding:10px 16px;
+    border-radius:20px;
+    font-size:13px;
+    font-weight:700;
+  }
+  footer{
+    text-align:center;
+    font-size:11px;
+    color:#8092B0;
+    padding:20px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand-row">
+    <img class="brand-photo" id="brandPhoto" src="icon-192.png" alt="SHAMAN CHOOZ PRODUCTION" onclick="document.getElementById('photoModal').classList.add('show')">
+    <div class="brand-name">ACHAT EN LIGNE CODES TICKETS<br>SHAMAN CHOOZ PRODUCTION</div>
+  </div>
+  <div class="signal"><span></span><span></span><span></span><span></span></div>
+  <h1>WI-FI 6 SHAMAN HOTSPOT</h1>
+  <p>Achetez votre code ticket en ligne — connexion via Wave</p>
+</header>
+
+<div id="offlineBanner" style="display:none;background:#FFF3DA;color:#8A5A00;text-align:center;font-size:12px;padding:8px 16px;">
+  📶 Pas de connexion internet détectée. Vous pouvez consulter les forfaits hors-ligne ; activez vos données mobiles ou le Wi-Fi le temps de finaliser le paiement Wave.
+</div>
+
+<div id="photoModal" onclick="this.classList.remove('show')">
+  <img src="icon-512.png" alt="SHAMAN CHOOZ PRODUCTION">
+</div>
+
+<main>
+  <div class="section-label">Choisissez un forfait</div>
+  <div class="tickets" id="tickets"></div>
+
+  <div class="confirm-box">
+    <h2>Vous venez de payer sur Wave ?</h2>
+    <p>Indiquez le forfait choisi et le numéro Wave utilisé pour le paiement. Votre code ticket vous sera attribué après vérification, généralement en quelques minutes.</p>
+
+    <label for="forfaitSelect">Forfait payé</label>
+    <select id="forfaitSelect"></select>
+
+    <label for="phoneInput">Votre numéro Wave (celui qui a payé)</label>
+    <input id="phoneInput" type="tel" placeholder="07 XX XX XX XX" inputmode="tel">
+
+    <button class="primary" id="submitBtn">J'ai payé — envoyer</button>
+
+    <div class="status-msg status-wait" id="waitMsg">
+      ⏳ Votre paiement est en cours de vérification. Cette page se mettra à jour automatiquement dès que votre code sera prêt — restez sur cette page.
+    </div>
+
+    <div class="code-reveal" id="codeBox" style="display:none;">
+      <div class="lbl">Votre code ticket</div>
+      <div class="code" id="codeValue">------</div>
+      <div style="font-size:12px;opacity:.85;">Collez ce code dans le champ "CODE TEMPS" du portail Wi-Fi</div>
+      <a class="wa-btn" id="waLink" href="#" target="_blank">Recevoir aussi sur WhatsApp</a>
+    </div>
+
+    <div class="status-msg" id="errMsg" style="background:#FDEBEC;border:1px solid #F5B7BC;color:#8A1E27;">
+      Une erreur est survenue. Réessayez ou contactez le 07 48 93 56 86.
+    </div>
+  </div>
+</main>
+
+<footer>WI-FI 6 SHAMAN HOTSPOT · Tel. 07 48 93 56 86 · Powered by SHAMAN CHOOZ PRODUCTION</footer>
+
+<script>
+  // Enregistre le service worker pour pouvoir ouvrir la page hors connexion
+  if('serviceWorker' in navigator){
+    window.addEventListener('load', ()=> navigator.serviceWorker.register('sw.js').catch(()=>{}));
+  }
+
+  function updateOnlineStatus(){
+    document.getElementById('offlineBanner').style.display = navigator.onLine ? 'none' : 'block';
+  }
+  window.addEventListener('online', updateOnlineStatus);
+  window.addEventListener('offline', updateOnlineStatus);
+  updateOnlineStatus();
+</script>
+
+<script type="module">
+  const FORFAITS = [
+    { id:"1h",  label:"1 HEURE",    validite:"1 heure",  prix:100  },
+    { id:"1j",  label:"1 JOUR",     validite:"1 jour",   prix:300  },
+    { id:"2j",  label:"2 JOURS",    validite:"2 jours",  prix:400  },
+    { id:"3j",  label:"3 JOURS",    validite:"3 jours",  prix:500  },
+    { id:"4j",  label:"4 JOURS",    validite:"4 jours",  prix:600  },
+    { id:"1s",  label:"1 SEMAINE",  validite:"7 jours",  prix:1000 },
+    { id:"2s",  label:"2 SEMAINES", validite:"14 jours", prix:1500 },
+    { id:"3s",  label:"3 SEMAINES", validite:"21 jours", prix:2000 },
+    { id:"1m",  label:"1 MOIS",     validite:"30 jours", prix:3000 },
+  ];
+
+  // Remplacer par vos vrais liens Wave marchand (un par montant)
+  const WAVE_LINKS = {
+    100:  "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=100",
+    300:  "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=300",
+    400:  "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=400",
+    500:  "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=500",
+    600:  "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=600",
+    1000: "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=1000",
+    1500: "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=1500",
+    2000: "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=2000",
+    3000: "https://pay.wave.com/m/M_ci_mhyQZO-BXB4n/c/ci/?amount=3000",
+  };
+
+  const ticketsEl = document.getElementById('tickets');
+  const forfaitSelect = document.getElementById('forfaitSelect');
+
+  FORFAITS.forEach(f=>{
+    const a = document.createElement('a');
+    a.href = WAVE_LINKS[f.prix];
+    a.target = "_blank";
+    a.className = "ticket";
+    a.innerHTML = `
+      <div class="t-left">
+        <div class="duree">${f.label}</div>
+        <div class="valid">Valable ${f.validite}</div>
+      </div>
+      <div class="stub-hole top"></div>
+      <div class="stub-hole bottom"></div>
+      <div class="t-right">
+        <div class="prix">${f.prix}</div>
+        <div class="fcfa">FCFA</div>
+        <div class="go">Payer sur Wave →</div>
+      </div>`;
+    ticketsEl.appendChild(a);
+
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = `${f.label} — ${f.prix} FCFA`;
+    forfaitSelect.appendChild(opt);
+  });
+
+  const submitBtn = document.getElementById('submitBtn');
+  const waitMsg = document.getElementById('waitMsg');
+  const errMsg = document.getElementById('errMsg');
+  const codeBox = document.getElementById('codeBox');
+  const codeValue = document.getElementById('codeValue');
+  const waLink = document.getElementById('waLink');
+
+  let unsubscribe = null;
+
+  submitBtn.addEventListener('click', async ()=>{
+    const phone = document.getElementById('phoneInput').value.trim();
+    const forfaitId = forfaitSelect.value;
+    const forfait = FORFAITS.find(f=>f.id===forfaitId);
+    errMsg.classList.remove('show');
+
+    if(!phone || phone.length < 8){
+      errMsg.textContent = "Merci d'indiquer un numéro de téléphone valide.";
+      errMsg.classList.add('show');
+      return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Envoi...";
+
+    try{
+      const { collection, addDoc, onSnapshot, query, where, serverTimestamp } = window.__fb;
+      const db = window.__db;
+
+      const orderRef = await addDoc(collection(db, "orders"), {
+        phone,
+        forfaitId: forfait.id,
+        forfaitLabel: forfait.label,
+        montant: forfait.prix,
+        statut: "attente",
+        createdAt: serverTimestamp()
+      });
+
+      waitMsg.classList.add('show');
+      submitBtn.style.display = "none";
+
+      // Écoute en temps réel : dès que l'admin valide, le code apparaît ici automatiquement
+      const q = query(collection(db, "orders"), where("__name__","==", orderRef.id));
+      unsubscribe = onSnapshot(q, (snap)=>{
+        snap.forEach(doc=>{
+          const data = doc.data();
+          if(data.statut === "validee" && data.ticketCode){
+            waitMsg.classList.remove('show');
+            codeValue.textContent = data.ticketCode;
+            codeBox.style.display = "block";
+            const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
+            waLink.href = `https://wa.me/225${phone.replace(/\D/g,'').replace(/^0/,'')}?text=${msg}`;
+            if(unsubscribe) unsubscribe();
+          }
+          if(data.statut === "refusee"){
+            waitMsg.classList.remove('show');
+            errMsg.textContent = "Paiement non retrouvé. Contactez le 07 48 93 56 86 pour vérification.";
+            errMsg.classList.add('show');
+            submitBtn.style.display = "block";
+            submitBtn.disabled = false;
+            submitBtn.textContent = "J'ai payé — envoyer";
+            if(unsubscribe) unsubscribe();
+          }
+        });
+      });
+
+    }catch(e){
+      console.error(e);
+      errMsg.textContent = "Une erreur est survenue. Réessayez ou contactez le 07 48 93 56 86.";
+      errMsg.classList.add('show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = "J'ai payé — envoyer";
+    }
+  });
+</script>
+
+</body>
+</html>

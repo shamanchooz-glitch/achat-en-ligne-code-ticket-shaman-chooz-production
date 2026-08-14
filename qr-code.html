@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR code — Tickets SHAMAN</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body{font-family:sans-serif;background:#F5F8FC;text-align:center;padding:30px 16px;color:#0B1B33;}
+  h1{font-size:18px;}
+  input{width:90%;max-width:420px;padding:10px 12px;border-radius:8px;border:1px solid #D8E1F0;font-size:14px;margin:10px 0;}
+  button{padding:10px 18px;border:none;border-radius:8px;background:#0B3D91;color:#fff;font-weight:700;cursor:pointer;}
+  #printArea{
+    display:inline-block;
+    margin-top:24px;
+    background:#fff;
+    padding:24px;
+    border-radius:16px;
+    box-shadow:0 2px 10px rgba(0,0,0,.08);
+  }
+  #qrcode{margin:0 auto 12px;}
+  #printArea .title{font-weight:700;font-size:15px;margin-bottom:4px;}
+  #printArea .sub{font-size:12px;color:#5A6B8C;}
+  @media print{
+    body *{visibility:hidden;}
+    #printArea, #printArea *{visibility:visible;}
+    #printArea{position:absolute;top:0;left:0;box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+  <h1>Générer le QR code à imprimer</h1>
+  <p>Collez ici l'adresse de votre page <b>client.html</b> une fois mise en ligne (ex : GitHub Pages).</p>
+  <input id="urlInput" type="text" placeholder="https://votre-pseudo.github.io/votre-repo/client.html">
+  <br>
+  <button onclick="generate()">Générer le QR code</button>
+
+  <div id="printArea" style="display:none;">
+    <div class="title">WI-FI 6 SHAMAN HOTSPOT</div>
+    <div class="sub">Scannez pour acheter votre code ticket en ligne</div>
+    <div id="qrcode"></div>
+    <div class="sub" id="urlText"></div>
+    <div class="sub">Tel. 07 48 93 56 86</div>
+  </div>
+  <br><br>
+  <button onclick="window.print()" id="printBtn" style="display:none;">Imprimer</button>
+
+<script>
+  function generate(){
+    const url = document.getElementById('urlInput').value.trim();
+    if(!url) return;
+    document.getElementById('qrcode').innerHTML = '';
+    new QRCode(document.getElementById('qrcode'), { text: url, width: 220, height: 220 });
+    document.getElementById('urlText').textContent = url;
+    document.getElementById('printArea').style.display = 'inline-block';
+    document.getElementById('printBtn').style.display = 'inline-block';
+  }
+</script>
+</body>
+</html>
