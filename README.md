@@ -77,9 +77,25 @@ Exemple : si votre lien boutique est `https://votre-pseudo.github.io/tickets-wif
 
 ## Étape 3 — Générer le QR code à imprimer
 
+Depuis `index.html#admin`, une carte **"Lien de votre boutique à partager"** affiche désormais automatiquement votre lien (bouton "Copier") et génère le QR code correspondant — plus besoin d'ouvrir un fichier séparé.
+
+Vous pouvez aussi utiliser `qr-code.html` si vous préférez une page dédiée à imprimer proprement :
 1. Ouvrez `qr-code.html`, collez l'adresse de `index.html` (celle SANS `#admin`), cliquez "Générer le QR code" puis "Imprimer".
 2. Un client qui scanne arrive sur la boutique. Sur Android (Chrome), une bannière "Ajouter à l'écran d'accueil" propose l'installation ; sur iPhone (Safari), il utilise Partager → "Sur l'écran d'accueil".
 3. Ajoutez aussi ce lien comme bouton **"Acheter un code ticket en ligne"** sur le portail captif Mikhmon.
+
+## "Ajouter au stock" ne fonctionne pas — comment diagnostiquer
+
+Une bannière rouge d'erreur apparaît maintenant en haut du tableau de bord si quelque chose bloque (import, validation...), au lieu d'échouer silencieusement. Les causes les plus courantes :
+1. **Firestore Database non créé** : Console Firebase > Firestore Database > "Créer une base de données" (mode production). Sans ça, aucune lecture/écriture n'est possible.
+2. **Règles non publiées** : Firestore > Règles > collez le bloc de l'Étape 1 ci-dessus > cliquez **Publier** (pas juste "Enregistrer brouillon" — beaucoup oublient de publier).
+3. Après ces deux étapes, rechargez la page admin et réessayez.
+
+Si la bannière rouge apparaît, son message vous dira exactement laquelle de ces deux causes est en jeu.
+
+## Mot de passe admin : afficher/masquer
+Un lien **👁️ Afficher le mot de passe** sous le champ permet de vérifier la saisie avant de valider, pour éviter les erreurs de frappe.
+
 
 ## Fonctionnement hors connexion internet
 Une fois installée une première fois (avec internet), la boutique peut se rouvrir **sans connexion**. Une bannière avertit le client s'il est hors-ligne. Il lui faut une connexion active le temps de payer sur Wave ; dès qu'elle revient, la page se met à jour automatiquement et affiche le code sans qu'il ait besoin de rouvrir quoi que ce soit.
