@@ -488,35 +488,28 @@
   });
 
   // --- Connexion automatique au hotspot ---
+  // Important : on soumet directement en navigation de page (pas via un
+  // cadre caché), car un iframe http:// dans une page https:// est bloqué
+  // par le téléphone pour des raisons de sécurité, silencieusement.
   const connectStatus = document.getElementById('connectStatus');
   const retryBtn = document.getElementById('retryConnectBtn');
-  let hotspotFrame = document.getElementById('hotspotFrame');
-  if(!hotspotFrame){
-    hotspotFrame = document.createElement('iframe');
-    hotspotFrame.name = "hotspotFrame";
-    hotspotFrame.id = "hotspotFrame";
-    hotspotFrame.style.display = "none";
-    document.body.appendChild(hotspotFrame);
+
+  function soumettreCodeAuRouteur(code){
+    const form = document.getElementById('hotspotLoginForm');
+    form.action = HOTSPOT_LOGIN_URL;
+    form.removeAttribute('target');
+    form.username.value = code;
+    form.password.value = code;
+    form.submit();
   }
 
   function connecterAuHotspot(code){
-    const form = document.getElementById('hotspotLoginForm');
-    form.action = HOTSPOT_LOGIN_URL;
-    form.target = "hotspotFrame";
-    form.username.value = code;
-    form.password.value = code;
-
-    connectStatus.textContent = "Connexion automatique en cours...";
-    retryBtn.style.display = "none";
-
-    try{ form.submit(); }catch(e){}
-
-    setTimeout(()=>{
-      connectStatus.innerHTML = "Vous devriez être connecté(e) à internet. Si ce n'est pas le cas, vérifiez que votre Wi-Fi est bien sur <b>WI-FI 6 SHAMAN HOTSPOT</b>, puis réessayez — ou saisissez votre code manuellement dans le portail.";
-      retryBtn.style.display = "block";
-    }, 3500);
+    connectStatus.innerHTML = "Connexion automatique en cours... vous allez être redirigé(e) dans un instant.";
+    retryBtn.style.display = "block";
+    retryBtn.textContent = "Se connecter maintenant";
+    setTimeout(()=> soumettreCodeAuRouteur(code), 2200);
   }
-  retryBtn.addEventListener('click', ()=> connecterAuHotspot(codeValue.textContent));
+  retryBtn.addEventListener('click', ()=> soumettreCodeAuRouteur(codeValue.textContent));
 
   // ============================================================
   // ADMIN

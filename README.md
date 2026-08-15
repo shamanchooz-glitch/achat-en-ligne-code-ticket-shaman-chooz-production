@@ -115,6 +115,12 @@ Une fois installée une première fois (avec internet), la boutique peut se rouv
 
 Dès que le code est validé, la page l'envoie automatiquement au routeur — exactement comme si le client l'avait tapé lui-même. **Aucun mot de passe administrateur n'est utilisé ni stocké dans l'application**, par sécurité : seul le code ticket est envoyé, ce qui suffit pour se connecter.
 
+**Correction importante** : la première version envoyait le code via un cadre caché, bloqué silencieusement par les téléphones (mélange non sécurisé/sécurisé). La nouvelle version redirige directement la page vers le routeur après un court délai (~2 secondes, le temps que le client voie son code), ce qui fonctionne réellement.
+
+**Condition indispensable, à ne pas oublier** : cette fonctionnalité ne peut marcher que si le téléphone du client est **connecté au Wi-Fi "WI-FI 6 SHAMAN HOTSPOT" au moment où le code est validé** (pas en train d'utiliser ses données mobiles). En effet, l'adresse `10.10.10.1` de votre routeur n'est joignable que depuis votre réseau Wi-Fi local — un téléphone sur la 4G du client ne peut tout simplement pas l'atteindre, où que soit l'application. C'est une contrainte réseau, pas un bug corrigeable autrement.
+- Si le client achète en étant déjà connecté au Wi-Fi SHAMAN (via le Walled Garden, voir ci-dessous) → connexion automatique possible.
+- Si le client achète avec ses données mobiles avant de rejoindre le Wi-Fi → il devra taper son code manuellement une fois connecté au Wi-Fi (le code reste affiché sur sa page et envoyé sur WhatsApp).
+
 Deux réglages à vérifier avant que ça fonctionne chez vous :
 
 **1. L'adresse de connexion du routeur**
@@ -129,9 +135,15 @@ Pour que vos clients puissent ouvrir la boutique et payer *avant* d'être connec
 - `*.googleapis.com` et `*.gstatic.com` (Firebase)
 - `*.firebaseapp.com`
 - `pay.wave.com` et `*.wave.com`
-- `fonts.googleapis.com` et `fonts.gstatic.com`
+- `fonts.googleapis.com`, `fonts.gstatic.com`, et `cdnjs.cloudflare.com` (QR code, lecteur PDF)
 
-**Test recommandé avant mise en service** : achetez vous-même un ticket test depuis un téléphone connecté au Wi-Fi SHAMAN, pour vérifier que la connexion automatique fonctionne réellement chez vous. Si elle ne se fait pas, le code reste affiché à l'écran et se saisit manuellement comme avant — rien n'est bloqué.
+**Protocole de test recommandé, chez vous, avant de proposer ça aux clients :**
+1. Connectez un téléphone test au Wi-Fi **WI-FI 6 SHAMAN HOTSPOT**.
+2. Sans vous déconnecter de ce Wi-Fi, ouvrez la boutique et achetez un ticket test (le paiement Wave, lui, nécessite un instant de vraies données/Wi-Fi pour aboutir — c'est normal).
+3. Depuis `index.html#admin` (sur un autre appareil ou onglet), validez ce paiement test.
+4. Sur le téléphone test resté sur le Wi-Fi SHAMAN, regardez s'il est redirigé et connecté automatiquement.
+
+Si à l'étape 4 rien ne se passe, envoyez-moi une capture de ce qui s'affiche à ce moment précis (page blanche ? message d'erreur ? rien ne bouge ?) — ça me dira exactement quoi ajuster (probablement l'adresse `HOTSPOT_LOGIN_URL`).
 
 ## Utilisation au quotidien
 
