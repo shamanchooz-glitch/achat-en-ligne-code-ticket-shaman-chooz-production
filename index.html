@@ -438,7 +438,7 @@
     submitBtn.textContent = "Envoi...";
 
     try{
-      const { collection, addDoc, onSnapshot, query, where, serverTimestamp } = window.__fb;
+      const { collection, addDoc, doc, onSnapshot, serverTimestamp } = window.__fb;
       const db = window.__db;
 
       const orderRef = await addDoc(collection(db, "orders"), {
@@ -453,29 +453,31 @@
       waitMsg.classList.add('show');
       submitBtn.style.display = "none";
 
-      const q = query(collection(db, "orders"), where("__name__","==", orderRef.id));
-      unsubscribeOrder = onSnapshot(q, (snap)=>{
-        snap.forEach(d=>{
-          const data = d.data();
-          if(data.statut === "validee" && data.ticketCode){
-            waitMsg.classList.remove('show');
-            codeValue.textContent = data.ticketCode;
-            codeBox.style.display = "block";
-            const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
-            waLink.href = `https://wa.me/225${phone.replace(/\D/g,'').replace(/^0/,'')}?text=${msg}`;
-            connecterAuHotspot(data.ticketCode);
-            if(unsubscribeOrder) unsubscribeOrder();
-          }
-          if(data.statut === "refusee"){
-            waitMsg.classList.remove('show');
-            errMsg.textContent = "Paiement non retrouvé. Contactez le 07 48 93 56 86 pour vérification.";
-            errMsg.classList.add('show');
-            submitBtn.style.display = "block";
-            submitBtn.disabled = false;
-            submitBtn.textContent = "J'ai payé — envoyer";
-            if(unsubscribeOrder) unsubscribeOrder();
-          }
-        });
+      unsubscribeOrder = onSnapshot(doc(db, "orders", orderRef.id), (docSnap)=>{
+        if(!docSnap.exists()) return;
+        const data = docSnap.data();
+        if(data.statut === "validee" && data.ticketCode){
+          waitMsg.classList.remove('show');
+          codeValue.textContent = data.ticketCode;
+          codeBox.style.display = "block";
+          const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
+          waLink.href = `https://wa.me/225${phone.replace(/\D/g,'').replace(/^0/,'')}?text=${msg}`;
+          connecterAuHotspot(data.ticketCode);
+          if(unsubscribeOrder) unsubscribeOrder();
+        }
+        if(data.statut === "refusee"){
+          waitMsg.classList.remove('show');
+          errMsg.textContent = "Paiement non retrouvé. Contactez le 07 48 93 56 86 pour vérification.";
+          errMsg.classList.add('show');
+          submitBtn.style.display = "block";
+          submitBtn.disabled = false;
+          submitBtn.textContent = "J'ai payé — envoyer";
+          if(unsubscribeOrder) unsubscribeOrder();
+        }
+      }, (err)=>{
+        console.error(err);
+        errMsg.textContent = "Erreur de connexion au serveur : " + err.message;
+        errMsg.classList.add('show');
       });
 
     }catch(e){

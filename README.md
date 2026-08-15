@@ -168,8 +168,37 @@ Les identifiants sur l'étiquette (`User: admin`, mot de passe, clé Wi-Fi) rest
 - La connexion automatique au Wi-Fi dépend des deux réglages routeur ci-dessus — testez-la avant de la proposer aux clients.
 - La suppression après 30 jours est automatique quand le tableau de bord est ouvert ; sinon, utilisez la Corbeille manuellement. Pour un nettoyage garanti même app fermée, il faudrait une Firebase Cloud Function planifiée (plan payant "Blaze", très peu coûteux à ce volume) — je peux l'écrire quand vous serez prêt.
 
+## Bug corrigé : le client ne recevait jamais son code
+
+La page client "écoutait" sa commande avec une méthode Firestore qui ne fonctionnait pas de façon fiable. Résultat : même après validation réussie côté admin, le client restait bloqué sur "paiement en cours de vérification" indéfiniment — donc pas de code affiché, pas de tentative de connexion automatique. C'est corrigé.
+
+**Pour que ça marche, le téléphone du client doit rester sur la page de la boutique** (écran allumé, onglet ouvert) pendant que vous validez son paiement. S'il quitte la page avant que vous validiez, son code reste enregistré côté admin (visible dans "Stock de tickets"), mais il faudra qu'il rouvre le lien pour le recevoir automatiquement — sinon vous pouvez le lui donner vous-même.
+
+**Rappel : l'envoi WhatsApp n'est pas automatique.** Le bouton "Recevoir aussi sur WhatsApp" doit être tapé par le client lui-même ; l'application ne peut pas envoyer de message WhatsApp toute seule.
+
+## Ajouter le bouton sur votre portail Mikhmon (shamanchooz.wifi)
+
+Pour que vos clients voient un bouton **"Acheter un code ticket en ligne"** directement sur la page où ils entrent habituellement leur code, il faut l'ajouter dans le fichier de template de Mikhmon (un fichier séparé, propre à votre routeur — pas dans ce projet GitHub).
+
+1. Dans Mikhmon, cherchez la section d'édition du modèle de page de connexion (souvent "Hotspot Templates", "Login Page" ou "Edit Template").
+2. Ouvrez le fichier `login.html` de votre thème actuel.
+3. Ajoutez ce bouton à l'endroit de votre choix (par exemple juste au-dessus du champ "CODE TEMPS") :
+   ```html
+   <a href="https://shamanchooz-glitch.github.io/VOTRE-REPO/index.html"
+      style="display:block;background:#2ED9A0;color:#04241a;text-align:center;
+             padding:14px;border-radius:8px;font-weight:bold;
+             text-decoration:none;margin:16px 0;">
+     💳 Acheter un code ticket en ligne
+   </a>
+   ```
+   (remplacez le lien par votre vraie adresse GitHub Pages)
+4. Enregistrez/téléversez le fichier modifié dans Mikhmon.
+
+**Je peux le faire précisément à votre place** : envoyez-moi le code source actuel de cette page (menu ⋮ de Chrome → "Afficher le code source" sur cette page, puis copiez-collez le texte, ou une capture complète), et je vous renverrai le fichier avec le bouton déjà bien intégré.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
 - accès à l'API Wave Business ou compte CinetPay/PayDunya → paiement 100% automatique
 - Firebase Cloud Function planifiée → suppression garantie après 30 jours même sans ouvrir le tableau de bord
+
