@@ -48,9 +48,7 @@ Exemple : si votre lien boutique est `https://votre-pseudo.github.io/tickets-wif
    service cloud.firestore {
      match /databases/{database}/documents {
        match /orders/{orderId} {
-         allow create: if true;
-         allow read: if true;
-         allow update: if false;
+         allow read, write: if true;
        }
        match /tickets/{ticketId} {
          allow read, write: if true;
@@ -59,6 +57,8 @@ Exemple : si votre lien boutique est `https://votre-pseudo.github.io/tickets-wif
    }
    ```
    ⚠️ Règles ouvertes pour démarrer simplement. À restreindre plus tard (Firebase Auth pour l'admin) — dites-le-moi quand vous voudrez passer à cette étape.
+
+   **Si vous aviez déjà collé une version précédente de ces règles** (avec `allow update: if false` sur `orders`) : c'était une erreur de ma part dans une version antérieure de ce guide — elle empêchait vos validations de paiement d'aboutir complètement. Remplacez-la par la version ci-dessus dans Firestore > Règles, puis cliquez **Publier**.
 
 ## Étape 2 — Mettre en ligne avec GitHub
 

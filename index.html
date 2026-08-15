@@ -504,7 +504,7 @@
   }
 
   function connecterAuHotspot(code){
-    connectStatus.innerHTML = "Connexion automatique en cours... vous allez être redirigé(e) dans un instant.";
+    connectStatus.innerHTML = "Connexion automatique en cours... <b>Si une fenêtre \"informations non sécurisées\" apparaît, c'est normal — appuyez sur \"Envoyer quand même\"</b> pour terminer votre connexion.";
     retryBtn.style.display = "block";
     retryBtn.textContent = "Se connecter maintenant";
     setTimeout(()=> soumettreCodeAuRouteur(code), 2200);
