@@ -11,6 +11,12 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+  if(window['pdfjsLib']){
+    pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+  }
+</script>
 
 <!-- ============================================================
   CONFIGURATION FIREBASE — à remplir avec les clés de votre projet
@@ -262,7 +268,10 @@
       <button class="btn-trash" onclick="document.getElementById('trashModal').classList.add('show')">🗑️ Corbeille</button>
     </header>
 
-    <div id="adminErrBanner" style="display:none;background:#FDEBEC;color:#8A1E27;padding:12px 16px;font-size:13px;"></div>
+    <div id="adminErrBanner" style="display:none;background:#FDEBEC;color:#8A1E27;padding:12px 40px 12px 16px;font-size:13px;position:relative;">
+      <span id="adminErrText"></span>
+      <button onclick="document.getElementById('adminErrBanner').style.display='none'" style="position:absolute;right:10px;top:8px;border:none;background:none;font-size:16px;color:#8A1E27;cursor:pointer;">✕</button>
+    </div>
 
     <div id="trashModal">
       <div class="trash-card">
@@ -297,11 +306,18 @@
 
       <div class="card">
         <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
-        <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Collez les codes, un par ligne (ex : 62966, 43545, 54844...).</p>
+        <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
         <div class="import-row">
           <select id="importForfait"></select>
         </div>
-        <textarea id="importCodes" placeholder="62966&#10;43545&#10;54844"></textarea>
+        <div class="import-row">
+          <label class="btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+            📁 Choisir un fichier (PDF, CSV, TXT)
+            <input type="file" id="importFile" accept=".pdf,.csv,.txt" style="display:none;">
+          </label>
+          <span id="fileMsg" style="font-size:12px;color:#5A6B8C;"></span>
+        </div>
+        <textarea id="importCodes" placeholder="62966&#10;43545&#10;54844" style="margin-top:10px;"></textarea>
         <div class="import-row">
           <button class="btn-primary" onclick="importCodes()">Ajouter au stock</button>
           <span id="importMsg" style="font-size:12px;color:#0A6B4A;"></span>
@@ -513,6 +529,48 @@
     importForfait.appendChild(o);
   });
 
+  // --- Import de fichier (PDF / CSV / TXT) : extrait les codes automatiquement ---
+  const importFileInput = document.getElementById('importFile');
+  const fileMsg = document.getElementById('fileMsg');
+  if(importFileInput){
+    importFileInput.addEventListener('change', async (e)=>{
+      const file = e.target.files[0];
+      if(!file) return;
+      fileMsg.textContent = "Lecture du fichier...";
+      try{
+        let text = "";
+        if(file.type === "application/pdf" || file.name.toLowerCase().endsWith('.pdf')){
+          if(!window.pdfjsLib){ fileMsg.textContent = "Lecteur PDF indisponible, réessayez."; return; }
+          const buf = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({data: buf}).promise;
+          for(let p=1; p<=pdf.numPages; p++){
+            const page = await pdf.getPage(p);
+            const content = await page.getTextContent();
+            text += content.items.map(it=>it.str).join(' ') + '\n';
+          }
+        } else {
+          text = await file.text();
+        }
+
+        // Un code ticket Mikhmon est une suite de 4 à 6 chiffres, jamais collée à un
+        // autre nombre plus long (ex. on évite d'attraper un morceau de numéro de tél.)
+        const matches = text.match(/\b\d{4,6}\b/g) || [];
+        const codes = [...new Set(matches)];
+
+        if(codes.length === 0){
+          fileMsg.textContent = "Aucun code trouvé dans ce fichier. Vérifiez le fichier ou collez les codes à la main.";
+          return;
+        }
+        const box = document.getElementById('importCodes');
+        box.value = codes.join('\n');
+        fileMsg.textContent = `${codes.length} code(s) trouvé(s) — vérifiez la liste ci-dessous puis cliquez "Ajouter au stock".`;
+      }catch(err){
+        console.error(err);
+        fileMsg.textContent = "Impossible de lire ce fichier : " + err.message;
+      }
+    });
+  }
+
   window.checkPassword = function(){
     const val = document.getElementById('pwInput').value;
     if(val === ADMIN_PASSWORD){
@@ -545,10 +603,9 @@
     const db = window.__db;
 
     function showAdminError(msg){
-      const b = document.getElementById('adminErrBanner');
-      b.textContent = msg;
-      b.style.display = 'block';
-      setTimeout(()=>{ b.style.display = 'none'; }, 8000);
+      document.getElementById('adminErrText').textContent = msg;
+      document.getElementById('adminErrBanner').style.display = 'block';
+      window.scrollTo({top:0, behavior:'smooth'});
     }
     window.__showAdminError = showAdminError;
 

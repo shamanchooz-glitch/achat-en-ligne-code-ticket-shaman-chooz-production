@@ -84,6 +84,17 @@ Vous pouvez aussi utiliser `qr-code.html` si vous préférez une page dédiée �
 2. Un client qui scanne arrive sur la boutique. Sur Android (Chrome), une bannière "Ajouter à l'écran d'accueil" propose l'installation ; sur iPhone (Safari), il utilise Partager → "Sur l'écran d'accueil".
 3. Ajoutez aussi ce lien comme bouton **"Acheter un code ticket en ligne"** sur le portail captif Mikhmon.
 
+## Importer vos codes tickets — directement depuis vos fichiers
+
+Sur `index.html#admin`, dans la carte "Importer des codes tickets" :
+1. Choisissez d'abord le **forfait** correspondant (1 heure, 1 jour, etc.).
+2. Cliquez **📁 Choisir un fichier (PDF, CSV, TXT)** — ça ouvre votre galerie de fichiers, comme n'importe quelle appli. Sélectionnez le PDF de vouchers exporté depuis Mikhmon (ou un CSV/TXT si vous en exportez un).
+3. Les codes sont extraits automatiquement et remplissent la case en dessous — vérifiez la liste (retirez une ligne si besoin), puis cliquez **"Ajouter au stock"**.
+
+Vous pouvez toujours coller les codes à la main dans la case si vous préférez, sans passer par un fichier.
+
+⚠️ Important : "Ajouter au stock" n'ouvre pas vos fichiers — c'est le bouton **"📁 Choisir un fichier"** qui fait ça. "Ajouter au stock" enregistre ensuite ce qui se trouve dans la case, qu'il ait été rempli par le fichier ou tapé à la main.
+
 ## "Ajouter au stock" ne fonctionne pas — comment diagnostiquer
 
 Une bannière rouge d'erreur apparaît maintenant en haut du tableau de bord si quelque chose bloque (import, validation...), au lieu d'échouer silencieusement. Les causes les plus courantes :
