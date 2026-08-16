@@ -496,17 +496,24 @@
   const connectStatus = document.getElementById('connectStatus');
   const retryBtn = document.getElementById('retryConnectBtn');
 
+  // Soumet le code dans un NOUVEL onglet (pas la page actuelle) : si le
+  // routeur n'est pas joignable (pas de Walled Garden, ou client hors du
+  // Wi-Fi), seul ce nouvel onglet échoue — le code et le lien WhatsApp
+  // restent visibles et intacts sur la page principale, dans tous les cas.
   function soumettreCodeAuRouteur(code){
     const form = document.getElementById('hotspotLoginForm');
     form.action = HOTSPOT_LOGIN_URL;
-    form.removeAttribute('target');
+    form.target = "shamanHotspotConnect";
     form.username.value = code;
     form.password.value = code;
-    form.submit();
+    try{
+      window.open('', 'shamanHotspotConnect');
+      form.submit();
+    }catch(e){}
   }
 
   function connecterAuHotspot(code){
-    connectStatus.innerHTML = "Connexion automatique en cours... <b>Si une fenêtre \"informations non sécurisées\" apparaît, c'est normal — appuyez sur \"Envoyer quand même\"</b> pour terminer votre connexion.";
+    connectStatus.innerHTML = "Tentative de connexion automatique... Si un nouvel onglet s'ouvre et affiche une fenêtre \"informations non sécurisées\", c'est normal — appuyez sur \"Envoyer quand même\" dans cet onglet pour terminer la connexion. Si rien ne se passe (pas encore possible sur ce Wi-Fi), gardez ce code pour le saisir vous-même dans le portail.";
     retryBtn.style.display = "block";
     retryBtn.textContent = "Se connecter maintenant";
     setTimeout(()=> soumettreCodeAuRouteur(code), 2200);

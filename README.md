@@ -196,6 +196,25 @@ Pour que vos clients voient un bouton **"Acheter un code ticket en ligne"** dire
 
 **Je peux le faire précisément à votre place** : envoyez-moi le code source actuel de cette page (menu ⋮ de Chrome → "Afficher le code source" sur cette page, puis copiez-collez le texte, ou une capture complète), et je vous renverrai le fichier avec le bouton déjà bien intégré.
 
+## Comment ça se passe, du côté du client et du vôtre
+
+**Aujourd'hui, sans Walled Garden configuré :**
+1. Le client ouvre votre lien/QR code **avec ses données mobiles** (le Wi-Fi SHAMAN seul ne lui donne pas encore accès à la boutique tant que le Walled Garden n'est pas réglé).
+2. Il choisit un forfait, paie sur Wave, revient sur la page, indique son numéro et clique "J'ai payé".
+3. **Vous**, sur `index.html#admin` : vous voyez sa demande apparaître dans "Paiements en attente", vous vérifiez le paiement dans votre appli Wave, et cliquez **Valider**. C'est votre seule action.
+4. Le code apparaît automatiquement sur la page du client (elle doit être restée ouverte), avec un lien pour le recevoir aussi sur WhatsApp.
+5. La page tente une connexion automatique — sans Walled Garden, cette tentative ne peut pas aboutir (normal, le routeur n'est pas joignable par données mobiles), mais **elle échoue sans rien casser** : le code reste affiché, le client le copie dans le portail Wi-Fi comme d'habitude.
+
+**Le jour où le Walled Garden est configuré, sans changer un seul fichier :**
+1. Le client, connecté au Wi-Fi SHAMAN (même sans données mobiles), ouvre directement votre lien/QR — le Walled Garden l'autorise à atteindre la boutique, Firebase et Wave malgré le portail.
+2. Il paie sur Wave, revient sur la page, clique "J'ai payé".
+3. **Vous** : même action qu'aujourd'hui — vous validez dans `#admin`. C'est toujours votre seule action.
+4. Le code apparaît, et cette fois la tentative de connexion automatique aboutit réellement : un nouvel onglet s'ouvre et le connecte au Wi-Fi (avec éventuellement un tap sur "Envoyer quand même" si le navigateur affiche l'avertissement habituel pour les échanges non sécurisés). Il a internet, sans avoir rien tapé.
+
+**Ce qui ne change jamais pour vous** : ouvrir `#admin`, vérifier le paiement dans Wave, cliquer Valider. Tout le reste (attribution du code, tentative de connexion, gestion du stock) est déjà automatique aujourd'hui — le Walled Garden est la seule pièce qui manque pour que la toute dernière étape (la connexion internet elle-même) se fasse sans que le client tape son code.
+
+**Sécurité du code** : la tentative de connexion automatique se fait maintenant dans un onglet séparé, jamais sur la page principale — donc qu'elle réussisse ou échoue, le client garde toujours son code et son lien WhatsApp visibles, sans jamais perdre l'écran.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
