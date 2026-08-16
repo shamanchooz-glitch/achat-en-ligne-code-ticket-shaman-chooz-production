@@ -7,7 +7,7 @@
 // mettez à jour index.html, sinon les téléphones qui ont déjà installé
 // l'app continueront d'afficher l'ancienne version en cache.
 
-const CACHE_NAME = "shaman-tickets-v8";
+const CACHE_NAME = "shaman-tickets-v9";
 const APP_SHELL = [
   "./manifest.json",
   "./icon-192.png",

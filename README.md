@@ -228,6 +228,10 @@ Le tableau de bord affiche maintenant la date **et l'heure** à chaque étape, p
 - **Stock de tickets** : date d'ajout au stock, heure de vente, heure de passage en "utilisé" — les trois s'affichent l'une sous l'autre quand elles existent.
 - **Corbeille** : date et heure de vente/utilisation.
 
+## Alerte sonore pour les nouveaux paiements
+
+Depuis `index.html#admin`, un son (et une vibration sur téléphone) se déclenche automatiquement dès qu'une nouvelle demande de paiement arrive, tant que la page reste ouverte — pas besoin de la garder à l'œil en permanence, elle vous alertera.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

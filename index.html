@@ -633,8 +633,35 @@
     };
 
     const ordersQ = query(collection(db,"orders"), where("statut","==","attente"));
+    let knownOrderIds = new Set();
+    let firstOrdersLoad = true;
+    function playAlertSound(){
+      try{
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        [880, 1175].forEach((freq, i)=>{
+          const osc = ctx.createOscillator();
+          const gain = ctx.createGain();
+          osc.connect(gain); gain.connect(ctx.destination);
+          osc.frequency.value = freq;
+          gain.gain.setValueAtTime(0.2, ctx.currentTime + i*0.18);
+          gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + i*0.18 + 0.35);
+          osc.start(ctx.currentTime + i*0.18);
+          osc.stop(ctx.currentTime + i*0.18 + 0.35);
+        });
+      }catch(e){}
+      if(navigator.vibrate) navigator.vibrate([200,100,200]);
+    }
     onSnapshot(ordersQ, snap=>{
       const list = document.getElementById('ordersList');
+      if(!firstOrdersLoad){
+        snap.docChanges().forEach(change=>{
+          if(change.type === 'added' && !knownOrderIds.has(change.doc.id)){
+            playAlertSound();
+          }
+        });
+      }
+      firstOrdersLoad = false;
+      knownOrderIds = new Set(snap.docs.map(d=>d.id));
       if(snap.empty){ list.innerHTML = '<div class="empty">Aucune demande en attente pour le moment.</div>'; return; }
       list.innerHTML = '';
       snap.forEach(d=>{
