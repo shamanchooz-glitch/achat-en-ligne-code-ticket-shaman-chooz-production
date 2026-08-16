@@ -639,12 +639,13 @@
       list.innerHTML = '';
       snap.forEach(d=>{
         const o = d.data();
+        const heure = o.createdAt?.toMillis ? new Date(o.createdAt.toMillis()).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '';
         const row = document.createElement('div');
         row.className = 'order-row';
         row.innerHTML = `
           <div class="order-info">
             <b>${o.phone}</b> — ${o.forfaitLabel} (${o.montant} FCFA)
-            <div class="meta">Vérifiez ce paiement dans votre appli Wave avant de valider.</div>
+            <div class="meta">Reçu le ${heure} · Vérifiez ce paiement dans votre appli Wave avant de valider.</div>
           </div>
           <div class="order-actions">
             <button class="btn-valid">Valider</button>
@@ -723,17 +724,20 @@
         }
 
         const forfait = FORFAITS.find(f=>f.id===t.forfaitId);
-        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created });
+        const vendAt = t.vendAt?.toMillis ? t.vendAt.toMillis() : null;
+        const usedAt = t.usedAt?.toMillis ? t.usedAt.toMillis() : null;
+        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt });
       });
 
       rows.sort((a,b)=>b.created-a.created);
+      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
       const tbody = document.getElementById('ticketsTable');
       tbody.innerHTML = rows.slice(0,60).map(r=>`
         <tr>
           <td>${r.code}</td>
           <td>${r.forfait}</td>
           <td><span class="badge ${r.statut}">${r.statut}</span></td>
-          <td>${new Date(r.created).toLocaleDateString('fr-FR')}</td>
+          <td>${fmt(r.created)}${r.vendAt ? `<br><span style="color:#8A5A00;">Vendu : ${fmt(r.vendAt)}</span>` : ''}${r.usedAt ? `<br><span style="color:#0A6B4A;">Utilisé : ${fmt(r.usedAt)}</span>` : ''}</td>
           <td>${r.statut==='vendu' ? `<button class="row-action" data-id="${r.id}">Marquer utilisé</button>` : ''}</td>
         </tr>`).join('');
 
@@ -772,7 +776,7 @@
         <div class="trash-row">
           <div>
             <span class="code">${r.code}</span> — ${r.forfait}
-            <div class="meta">${r.statut === 'utilise' ? 'Utilisé' : 'Vendu'}${r.phone ? ' · ' + r.phone : ''} · ${new Date(r.created).toLocaleDateString('fr-FR')}</div>
+            <div class="meta">${r.statut === 'utilise' ? 'Utilisé' : 'Vendu'}${r.phone ? ' · ' + r.phone : ''} · ${new Date(r.created).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'})}</div>
           </div>
           <button class="btn-del" data-id="${r.id}">Supprimer</button>
         </div>`).join('');

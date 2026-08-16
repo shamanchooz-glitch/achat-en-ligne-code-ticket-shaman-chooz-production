@@ -215,6 +215,19 @@ Pour que vos clients voient un bouton **"Acheter un code ticket en ligne"** dire
 
 **Sécurité du code** : la tentative de connexion automatique se fait maintenant dans un onglet séparé, jamais sur la page principale — donc qu'elle réussisse ou échoue, le client garde toujours son code et son lien WhatsApp visibles, sans jamais perdre l'écran.
 
+## Pourquoi la connexion automatique marche sur certains téléphones et pas d'autres
+
+**Sans Walled Garden configuré**, le client doit garder **les données mobiles ET le Wi-Fi SHAMAN actifs en même temps**, pas basculer de l'un à l'autre : sa page a besoin d'internet (données mobiles) pour recevoir votre validation en direct, et du Wi-Fi (simultanément) pour atteindre le routeur au moment de la connexion automatique. Couper les données mobiles avant que vous validiez interrompt la réception du code.
+
+Certaines marques de téléphone (Infinix/Transsion notamment) **déconnectent automatiquement** un Wi-Fi détecté comme "sans internet" — ce qui est le cas du Wi-Fi SHAMAN tant qu'on n'est pas authentifié — même si l'écran affiche encore "connecté". C'est un réglage du téléphone, pas quelque chose que l'application peut corriger. Le client peut le désactiver lui-même : *Paramètres → Wi-Fi → icône ⚙️ à côté de "WI-FI 6 SHAMAN HOTSPOT" → désactiver "Éviter les réseaux sans internet"* (nom exact variable selon la marque). **Une fois le Walled Garden configuré, ce problème disparaît de lui-même** : le Wi-Fi SHAMAN aura un vrai accès internet (au moins vers les sites autorisés), donc les téléphones ne le couperont plus automatiquement.
+
+## Heures affichées partout
+
+Le tableau de bord affiche maintenant la date **et l'heure** à chaque étape, pour vérification :
+- **Paiements en attente** : heure de réception de la demande.
+- **Stock de tickets** : date d'ajout au stock, heure de vente, heure de passage en "utilisé" — les trois s'affichent l'une sous l'autre quand elles existent.
+- **Corbeille** : date et heure de vente/utilisation.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
