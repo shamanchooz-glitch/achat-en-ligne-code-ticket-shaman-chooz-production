@@ -224,9 +224,9 @@
       <div class="code-reveal" id="codeBox" style="display:none;">
         <div class="lbl">Votre code ticket</div>
         <div class="code" id="codeValue">------</div>
-        <div id="connectStatus" style="font-size:12px;opacity:.9;">Connexion automatique en cours...</div>
-        <button class="primary" id="retryConnectBtn" style="display:none;margin-top:12px;background:#fff;color:var(--blue-deep);">Réessayer la connexion</button>
-        <a class="wa-btn" id="waLink" href="#" target="_blank">Recevoir aussi sur WhatsApp</a>
+        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 Me connecter + recevoir mon code sur WhatsApp</button>
+        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Un seul appui suffit. Si une fenêtre "informations non sécurisées" apparaît ensuite, appuyez sur "Envoyer quand même" — c'est normal et sans danger.</div>
+        <a class="wa-btn" id="waLink" href="#" target="_blank" style="display:none;">📲 Recevoir aussi sur WhatsApp</a>
       </div>
 
       <form id="hotspotLoginForm" method="post" style="display:none;">
@@ -358,7 +358,7 @@
   routeView();
 
   const FORFAITS = [
-    { id:"1h",  label:"1 HEURE",    validite:"1 heure",  prix:100  },
+    { id:"1h",  label:"4 HEURES",   validite:"1 jour",   prix:100  },
     { id:"1j",  label:"1 JOUR",     validite:"1 jour",   prix:300  },
     { id:"2j",  label:"2 JOURS",    validite:"2 jours",  prix:400  },
     { id:"3j",  label:"3 JOURS",    validite:"3 jours",  prix:500  },
@@ -461,8 +461,7 @@
           codeValue.textContent = data.ticketCode;
           codeBox.style.display = "block";
           const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
-          waLink.href = `https://wa.me/225${phone.replace(/\D/g,'').replace(/^0/,'')}?text=${msg}`;
-          connecterAuHotspot(data.ticketCode);
+          waLink.href = `https://wa.me/225${phone.replace(/\D/g,'')}?text=${msg}`;
           if(unsubscribeOrder) unsubscribeOrder();
         }
         if(data.statut === "refusee"){
@@ -496,29 +495,25 @@
   const connectStatus = document.getElementById('connectStatus');
   const retryBtn = document.getElementById('retryConnectBtn');
 
-  // Soumet le code dans un NOUVEL onglet (pas la page actuelle) : si le
-  // routeur n'est pas joignable (pas de Walled Garden, ou client hors du
-  // Wi-Fi), seul ce nouvel onglet échoue — le code et le lien WhatsApp
-  // restent visibles et intacts sur la page principale, dans tous les cas.
   function soumettreCodeAuRouteur(code){
     const form = document.getElementById('hotspotLoginForm');
     form.action = HOTSPOT_LOGIN_URL;
-    form.target = "shamanHotspotConnect";
+    form.removeAttribute('target');
     form.username.value = code;
     form.password.value = code;
-    try{
-      window.open('', 'shamanHotspotConnect');
-      form.submit();
-    }catch(e){}
+    form.submit();
   }
 
-  function connecterAuHotspot(code){
-    connectStatus.innerHTML = "Tentative de connexion automatique... Si un nouvel onglet s'ouvre et affiche une fenêtre \"informations non sécurisées\", c'est normal — appuyez sur \"Envoyer quand même\" dans cet onglet pour terminer la connexion. Si rien ne se passe (pas encore possible sur ce Wi-Fi), gardez ce code pour le saisir vous-même dans le portail.";
-    retryBtn.style.display = "block";
-    retryBtn.textContent = "Se connecter maintenant";
-    setTimeout(()=> soumettreCodeAuRouteur(code), 2200);
-  }
-  retryBtn.addEventListener('click', ()=> soumettreCodeAuRouteur(codeValue.textContent));
+  // Un seul appui déclenche les deux : ouvre WhatsApp avec le code prérempli
+  // (nouvel onglet/appli, ne quitte pas la page), PUIS envoie le code au
+  // routeur sur la page actuelle pour terminer la connexion internet.
+  retryBtn.addEventListener('click', ()=>{
+    const waUrl = document.getElementById('waLink').href;
+    if(waUrl && waUrl !== '#' && waUrl.startsWith('http')){
+      window.open(waUrl, '_blank');
+    }
+    soumettreCodeAuRouteur(codeValue.textContent);
+  });
 
   // ============================================================
   // ADMIN

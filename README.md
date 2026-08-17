@@ -232,6 +232,13 @@ Le tableau de bord affiche maintenant la date **et l'heure** à chaque étape, p
 
 Depuis `index.html#admin`, un son (et une vibration sur téléphone) se déclenche automatiquement dès qu'une nouvelle demande de paiement arrive, tant que la page reste ouverte — pas besoin de la garder à l'œil en permanence, elle vous alertera.
 
+## Un seul bouton pour tout faire
+
+Le bouton unique **"🔓 Me connecter + recevoir mon code sur WhatsApp"** déclenche les deux actions d'un coup, dans cet ordre, au moment du tap : ouvre WhatsApp dans un nouvel onglet/l'application (avec le message prérempli), puis envoie le code au routeur sur la page actuelle pour terminer la connexion internet. Les deux se lancent depuis le même geste — le client n'a qu'un seul appui à faire.
+
+
+**Correctif supplémentaire** : le lien WhatsApp ne fonctionnait pas à cause d'un numéro mal formaté — les numéros ivoiriens à 10 chiffres (depuis la réforme de numérotation) ne doivent plus perdre leur premier chiffre. C'est corrigé.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
