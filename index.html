@@ -224,9 +224,13 @@
       <div class="code-reveal" id="codeBox" style="display:none;">
         <div class="lbl">Votre code ticket</div>
         <div class="code" id="codeValue">------</div>
-        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 Me connecter + recevoir mon code sur WhatsApp</button>
-        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Un seul appui suffit. Si une fenêtre "informations non sécurisées" apparaît ensuite, appuyez sur "Envoyer quand même" — c'est normal et sans danger.</div>
-        <a class="wa-btn" id="waLink" href="#" target="_blank" style="display:none;">📲 Recevoir aussi sur WhatsApp</a>
+
+        <a class="wa-btn" id="waLink" href="#" target="_blank" style="margin-bottom:14px;">📲 1. Recevoir mon code sur WhatsApp</a>
+
+        <div style="font-size:12px;opacity:.85;margin:10px 0;">Puis désactivez vos données mobiles (gardez seulement le Wi-Fi <b>WI-FI 6 SHAMAN HOTSPOT</b>) avant d'appuyer ci-dessous :</div>
+
+        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 2. Me connecter à Internet</button>
+        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Si une fenêtre "informations non sécurisées" apparaît, appuyez sur "Envoyer quand même" — c'est normal et sans danger.</div>
       </div>
 
       <form id="hotspotLoginForm" method="post" style="display:none;">
@@ -504,16 +508,9 @@
     form.submit();
   }
 
-  // Un seul appui déclenche les deux : ouvre WhatsApp avec le code prérempli
-  // (nouvel onglet/appli, ne quitte pas la page), PUIS envoie le code au
-  // routeur sur la page actuelle pour terminer la connexion internet.
-  retryBtn.addEventListener('click', ()=>{
-    const waUrl = document.getElementById('waLink').href;
-    if(waUrl && waUrl !== '#' && waUrl.startsWith('http')){
-      window.open(waUrl, '_blank');
-    }
-    soumettreCodeAuRouteur(codeValue.textContent);
-  });
+  // Bouton 2 : uniquement la connexion internet (le bouton WhatsApp,
+  // séparé, gère l'envoi du code — voir l'explication à l'écran sur l'ordre).
+  retryBtn.addEventListener('click', ()=> soumettreCodeAuRouteur(codeValue.textContent));
 
   // ============================================================
   // ADMIN

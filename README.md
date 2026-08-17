@@ -232,9 +232,16 @@ Le tableau de bord affiche maintenant la date **et l'heure** à chaque étape, p
 
 Depuis `index.html#admin`, un son (et une vibration sur téléphone) se déclenche automatiquement dès qu'une nouvelle demande de paiement arrive, tant que la page reste ouverte — pas besoin de la garder à l'œil en permanence, elle vous alertera.
 
-## Un seul bouton pour tout faire
+## Deux boutons dans le bon ordre — pourquoi le tout-automatique n'est pas possible
 
-Le bouton unique **"🔓 Me connecter + recevoir mon code sur WhatsApp"** déclenche les deux actions d'un coup, dans cet ordre, au moment du tap : ouvre WhatsApp dans un nouvel onglet/l'application (avec le message prérempli), puis envoie le code au routeur sur la page actuelle pour terminer la connexion internet. Les deux se lancent depuis le même geste — le client n'a qu'un seul appui à faire.
+**Ce qui limite techniquement l'automatisation ici : c'est le téléphone qui choisit lui-même par quel réseau (Wi-Fi ou données mobiles) passe chaque connexion — aucun code web ne peut forcer ce choix, sur aucun site, aussi avancé soit-il.** Vos propres tests l'ont confirmé : la connexion au routeur n'aboutit que lorsque les données mobiles sont coupées, parce qu'à ce moment le Wi-Fi devient le seul chemin possible.
+
+Comme WhatsApp a besoin d'internet pour envoyer le message, et que la connexion au routeur a besoin que les données mobiles soient coupées, ces deux actions ne peuvent pas se faire au même instant. La page guide donc le client dans le bon ordre, avec deux boutons distincts et numérotés :
+1. **"📲 1. Recevoir mon code sur WhatsApp"** — à taper tout de suite, pendant que les données mobiles sont encore actives.
+2. Le client désactive ensuite ses données mobiles (instruction affichée à l'écran).
+3. **"🔓 2. Me connecter à Internet"** — à taper une fois les données coupées, pour que la connexion au Wi-Fi aboutisse.
+
+Si une fenêtre "informations non sécurisées" apparaît après le bouton 2, un tap sur "Envoyer quand même" suffit — c'est une protection du téléphone (le routeur répond en http), pas un défaut de l'application.
 
 
 **Correctif supplémentaire** : le lien WhatsApp ne fonctionnait pas à cause d'un numéro mal formaté — les numéros ivoiriens à 10 chiffres (depuis la réforme de numérotation) ne doivent plus perdre leur premier chiffre. C'est corrigé.
