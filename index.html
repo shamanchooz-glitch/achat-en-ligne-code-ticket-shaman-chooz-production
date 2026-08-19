@@ -175,6 +175,11 @@
   .btn-del{border:none;background:#FDEBEC;color:var(--danger);border-radius:8px;padding:6px 10px;font-size:11px;font-weight:700;cursor:pointer;}
   .btn-del-all{border:none;background:var(--danger);color:#fff;border-radius:8px;padding:9px 14px;font-size:12px;font-weight:700;cursor:pointer;margin-top:12px;}
   .btn-del-all:disabled{background:#DDE3EE;cursor:default;}
+  @media print{
+    body *{visibility:hidden;}
+    #invoiceContent, #invoiceContent *{visibility:visible;}
+    #invoiceContent{position:absolute;top:0;left:0;width:100%;}
+  }
 </style>
 </head>
 <body>
@@ -304,6 +309,14 @@
       </div>
 
       <div class="card">
+        <h2>Stock par forfait</h2>
+        <table>
+          <thead><tr><th>Forfait</th><th>En stock</th><th>Vendus</th><th>Utilisés</th></tr></thead>
+          <tbody id="forfaitStockTable"></tbody>
+        </table>
+      </div>
+
+      <div class="card">
         <h2>Paiements en attente de validation</h2>
         <div id="ordersList"><div class="empty">Aucune demande en attente pour le moment.</div></div>
       </div>
@@ -335,7 +348,26 @@
           <tbody id="ticketsTable"></tbody>
         </table>
       </div>
+
+      <div class="card">
+        <h2>Historique des achats & factures</h2>
+        <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Chaque ligne = un achat, du paiement jusqu'à la connexion. Imprimez une facture détaillée pour n'importe lequel.</p>
+        <table>
+          <thead><tr><th>Client</th><th>Forfait</th><th>Statut</th><th>Heures</th><th></th></tr></thead>
+          <tbody id="historyTable"></tbody>
+        </table>
+      </div>
     </main>
+  </div>
+</div>
+
+<div id="invoiceModal" style="display:none;position:fixed;inset:0;background:rgba(6,15,32,.55);z-index:998;align-items:flex-start;justify-content:center;padding:30px 16px;">
+  <div style="background:#fff;border-radius:16px;padding:24px;max-width:420px;width:100%;max-height:85vh;overflow-y:auto;">
+    <div id="invoiceContent" style="font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.7;"></div>
+    <div style="display:flex;gap:10px;margin-top:18px;">
+      <button class="btn-primary" onclick="window.print()">Imprimer</button>
+      <button class="btn-del" onclick="document.getElementById('invoiceModal').style.display='none'">Fermer</button>
+    </div>
   </div>
 </div>
 
@@ -466,6 +498,7 @@
           codeBox.style.display = "block";
           const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
           waLink.href = `https://wa.me/225${phone.replace(/\D/g,'')}?text=${msg}`;
+          window.__currentOrderRef = orderRef;
           if(unsubscribeOrder) unsubscribeOrder();
         }
         if(data.statut === "refusee"){
@@ -510,7 +543,20 @@
 
   // Bouton 2 : uniquement la connexion internet (le bouton WhatsApp,
   // séparé, gère l'envoi du code — voir l'explication à l'écran sur l'ordre).
-  retryBtn.addEventListener('click', ()=> soumettreCodeAuRouteur(codeValue.textContent));
+  retryBtn.addEventListener('click', ()=>{
+    if(window.__currentOrderRef){
+      const { updateDoc, serverTimestamp } = window.__fb;
+      updateDoc(window.__currentOrderRef, { connectAt: serverTimestamp() }).catch(()=>{});
+    }
+    soumettreCodeAuRouteur(codeValue.textContent);
+  });
+
+  document.getElementById('waLink').addEventListener('click', ()=>{
+    if(window.__currentOrderRef){
+      const { updateDoc, serverTimestamp } = window.__fb;
+      updateDoc(window.__currentOrderRef, { waSentAt: serverTimestamp() }).catch(()=>{});
+    }
+  });
 
   // ============================================================
   // ADMIN
@@ -729,12 +775,15 @@
       let stock=0, vendu=0, utilise=0;
       const THIRTY_DAYS = 30*24*60*60*1000;
       const now = Date.now();
+      const parForfait = {};
+      FORFAITS.forEach(f=> parForfait[f.id] = { stock:0, vendu:0, utilise:0 });
 
       snap.forEach(d=>{
         const t = d.data();
         if(t.statut==='stock') stock++;
         if(t.statut==='vendu') vendu++;
         if(t.statut==='utilise') utilise++;
+        if(parForfait[t.forfaitId]) parForfait[t.forfaitId][t.statut] = (parForfait[t.forfaitId][t.statut]||0) + 1;
 
         const created = t.createdAt?.toMillis ? t.createdAt.toMillis() : now;
         if((t.statut==='vendu' || t.statut==='utilise') && (now-created) > THIRTY_DAYS){
@@ -768,6 +817,14 @@
         <div class="stat"><div class="n">${stock}</div><div class="l">En stock</div></div>
         <div class="stat"><div class="n">${vendu}</div><div class="l">Vendus</div></div>
         <div class="stat"><div class="n">${utilise}</div><div class="l">Utilisés</div></div>`;
+
+      const forfaitTable = document.getElementById('forfaitStockTable');
+      if(forfaitTable){
+        forfaitTable.innerHTML = FORFAITS.map(f=>{
+          const c = parForfait[f.id] || {stock:0,vendu:0,utilise:0};
+          return `<tr><td>${f.label}</td><td>${c.stock}</td><td>${c.vendu}</td><td>${c.utilise}</td></tr>`;
+        }).join('');
+      }
     });
 
     const trashQ = query(collection(db,"tickets"), where("statut","in",["vendu","utilise"]));
@@ -811,6 +868,63 @@
       const batch = writeBatch(db);
       trashIds.forEach(id => batch.delete(doc(db,"tickets",id)));
       await batch.commit();
+    };
+
+    // --- Historique des achats & factures ---
+    let historyOrders = {};
+    onSnapshot(collection(db,"orders"), snap=>{
+      const rows = [];
+      snap.forEach(d=>{
+        const o = d.data();
+        historyOrders[d.id] = o;
+        const created = o.createdAt?.toMillis ? o.createdAt.toMillis() : 0;
+        rows.push({ id:d.id, ...o, created });
+      });
+      rows.sort((a,b)=>b.created-a.created);
+      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : null;
+      const statutLabel = { attente:'En attente', validee:'Validée', refusee:'Refusée' };
+      const badgeClass = { attente:'vendu', validee:'utilise', refusee:'stock' };
+      const tbody = document.getElementById('historyTable');
+      if(tbody){
+        tbody.innerHTML = rows.slice(0,80).map(r=>`
+          <tr>
+            <td>${r.phone||''}</td>
+            <td>${r.forfaitLabel||''}<br><span style="color:#5A6B8C;">${r.montant||0} FCFA</span></td>
+            <td><span class="badge ${badgeClass[r.statut]||'stock'}">${statutLabel[r.statut]||r.statut}</span></td>
+            <td>Achat : ${fmt(r.created)||'—'}${r.validatedAt ? `<br>Validé : ${fmt(r.validatedAt.toMillis ? r.validatedAt.toMillis() : null)}` : ''}</td>
+            <td><button class="row-action" data-id="${r.id}">Facture</button></td>
+          </tr>`).join('');
+        tbody.querySelectorAll('.row-action').forEach(btn=>{
+          btn.onclick = ()=> afficherFacture(btn.dataset.id);
+        });
+      }
+    });
+
+    window.afficherFacture = function(orderId){
+      const o = historyOrders[orderId];
+      if(!o) return;
+      const fmt = (ts)=> ts?.toMillis ? new Date(ts.toMillis()).toLocaleString('fr-FR', {dateStyle:'long', timeStyle:'medium'}) : null;
+      const statutLabel = { attente:'En attente de validation', validee:'Validée', refusee:'Refusée' };
+      const lignes = [
+        ['N° de commande', orderId],
+        ['Client (numéro)', o.phone || '—'],
+        ['Forfait', o.forfaitLabel || '—'],
+        ['Montant', `${o.montant || 0} FCFA`],
+        ['Statut', statutLabel[o.statut] || o.statut],
+        ['Code ticket', o.ticketCode || '—'],
+        ['', ''],
+        ['Achat effectué le', fmt(o.createdAt) || '—'],
+        ['Paiement validé le', fmt(o.validatedAt) || '—'],
+        ['Code envoyé sur WhatsApp le', fmt(o.waSentAt) || 'Non envoyé / non enregistré'],
+        ['Connexion Wi-Fi tentée le', fmt(o.connectAt) || 'Non tentée / non enregistrée'],
+      ];
+      document.getElementById('invoiceContent').innerHTML = `
+        <div style="text-align:center;font-weight:700;font-size:15px;margin-bottom:4px;">WI-FI 6 SHAMAN HOTSPOT</div>
+        <div style="text-align:center;color:#5A6B8C;margin-bottom:14px;">SHAMAN CHOOZ PRODUCTION · Tel. 07 48 93 56 86</div>
+        <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0;">
+        ${lignes.map(([l,v])=> l ? `<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#5A6B8C;">${l}</span><span style="text-align:right;">${v}</span></div>` : '<hr style="border:none;border-top:1px dashed var(--line);margin:10px 0;">').join('')}
+      `;
+      document.getElementById('invoiceModal').style.display = 'flex';
     };
   }
 

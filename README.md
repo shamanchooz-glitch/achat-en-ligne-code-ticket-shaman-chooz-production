@@ -246,6 +246,13 @@ Si une fenêtre "informations non sécurisées" apparaît après le bouton 2, un
 
 **Correctif supplémentaire** : le lien WhatsApp ne fonctionnait pas à cause d'un numéro mal formaté — les numéros ivoiriens à 10 chiffres (depuis la réforme de numérotation) ne doivent plus perdre leur premier chiffre. C'est corrigé.
 
+## Nouveaux outils de gestion dans l'admin
+
+- **Stock par forfait** : nouvelle carte montrant, pour chaque forfait (1 heure, 1 jour, etc.), le nombre en stock / vendus / utilisés séparément — plus seulement un total global.
+- **Historique des achats & factures** : nouvelle carte listant chaque achat (en attente, validé, refusé), avec un bouton **"Facture"** qui ouvre le détail complet — numéro de commande, client, forfait, montant, code ticket, et les heures de chaque étape (achat, validation, envoi WhatsApp, tentative de connexion). Bouton **"Imprimer"** dans cette fenêtre pour l'imprimer ou l'enregistrer en PDF depuis l'aperçu d'impression du téléphone.
+- **Heures** : toutes les heures affichées utilisent l'heure de l'appareil qui consulte la page (votre téléphone), donc toujours votre heure locale, sans décalage.
+- Le suivi "WhatsApp envoyé" et "Connexion tentée" se met à jour automatiquement dès que le client appuie sur ces boutons de son côté — s'il n'a pas encore appuyé, la facture l'indique clairement ("Non envoyé", "Non tentée") plutôt que d'afficher une fausse heure.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
