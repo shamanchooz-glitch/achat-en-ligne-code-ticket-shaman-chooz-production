@@ -393,16 +393,17 @@
   window.addEventListener('hashchange', routeView);
   routeView();
 
+  const JOUR = 24*60*60*1000;
   const FORFAITS = [
-    { id:"1h",  label:"4 HEURES",   validite:"1 jour",   prix:100  },
-    { id:"1j",  label:"1 JOUR",     validite:"1 jour",   prix:300  },
-    { id:"2j",  label:"2 JOURS",    validite:"2 jours",  prix:400  },
-    { id:"3j",  label:"3 JOURS",    validite:"3 jours",  prix:500  },
-    { id:"4j",  label:"4 JOURS",    validite:"4 jours",  prix:600  },
-    { id:"1s",  label:"1 SEMAINE",  validite:"7 jours",  prix:1000 },
-    { id:"2s",  label:"2 SEMAINES", validite:"14 jours", prix:1500 },
-    { id:"3s",  label:"3 SEMAINES", validite:"21 jours", prix:2000 },
-    { id:"1m",  label:"1 MOIS",     validite:"30 jours", prix:3000 },
+    { id:"1h",  label:"4 HEURES",   validite:"1 jour",   prix:100,  dureeMs: 1*JOUR  },
+    { id:"1j",  label:"1 JOUR",     validite:"1 jour",   prix:300,  dureeMs: 1*JOUR  },
+    { id:"2j",  label:"2 JOURS",    validite:"2 jours",  prix:400,  dureeMs: 2*JOUR  },
+    { id:"3j",  label:"3 JOURS",    validite:"3 jours",  prix:500,  dureeMs: 3*JOUR  },
+    { id:"4j",  label:"4 JOURS",    validite:"4 jours",  prix:600,  dureeMs: 4*JOUR  },
+    { id:"1s",  label:"1 SEMAINE",  validite:"7 jours",  prix:1000, dureeMs: 7*JOUR  },
+    { id:"2s",  label:"2 SEMAINES", validite:"14 jours", prix:1500, dureeMs: 14*JOUR },
+    { id:"3s",  label:"3 SEMAINES", validite:"21 jours", prix:2000, dureeMs: 21*JOUR },
+    { id:"1m",  label:"1 MOIS",     validite:"30 jours", prix:3000, dureeMs: 30*JOUR },
   ];
 
   // Remplacer par vos vrais liens Wave marchand (un par montant)
@@ -791,10 +792,20 @@
           return;
         }
 
+        // Marquage automatique "utilisé" une fois la durée du forfait écoulée
+        // depuis la vente (calculé nous-mêmes, sans dépendre du routeur).
+        if(t.statut==='vendu'){
+          const forfaitDef = FORFAITS.find(f=>f.id===t.forfaitId);
+          const vendAtMs = t.vendAt?.toMillis ? t.vendAt.toMillis() : null;
+          if(forfaitDef && vendAtMs && (now - vendAtMs) > forfaitDef.dureeMs){
+            updateDoc(doc(db,"tickets",d.id), { statut:"utilise", usedAt: serverTimestamp(), usedAtAuto: true });
+          }
+        }
+
         const forfait = FORFAITS.find(f=>f.id===t.forfaitId);
         const vendAt = t.vendAt?.toMillis ? t.vendAt.toMillis() : null;
         const usedAt = t.usedAt?.toMillis ? t.usedAt.toMillis() : null;
-        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt });
+        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt, usedAtAuto: !!t.usedAtAuto });
       });
 
       rows.sort((a,b)=>b.created-a.created);
@@ -805,7 +816,7 @@
           <td>${r.code}</td>
           <td>${r.forfait}</td>
           <td><span class="badge ${r.statut}">${r.statut}</span></td>
-          <td>${fmt(r.created)}${r.vendAt ? `<br><span style="color:#8A5A00;">Vendu : ${fmt(r.vendAt)}</span>` : ''}${r.usedAt ? `<br><span style="color:#0A6B4A;">Utilisé : ${fmt(r.usedAt)}</span>` : ''}</td>
+          <td>${fmt(r.created)}${r.vendAt ? `<br><span style="color:#8A5A00;">Vendu : ${fmt(r.vendAt)}</span>` : ''}${r.usedAt ? `<br><span style="color:#0A6B4A;">Utilisé${r.usedAtAuto ? ' (auto, validité expirée)' : ''} : ${fmt(r.usedAt)}</span>` : ''}</td>
           <td>${r.statut==='vendu' ? `<button class="row-action" data-id="${r.id}">Marquer utilisé</button>` : ''}</td>
         </tr>`).join('');
 
