@@ -253,6 +253,18 @@ Si une fenêtre "informations non sécurisées" apparaît après le bouton 2, un
 - **Heures** : toutes les heures affichées utilisent l'heure de l'appareil qui consulte la page (votre téléphone), donc toujours votre heure locale, sans décalage.
 - Le suivi "WhatsApp envoyé" et "Connexion tentée" se met à jour automatiquement dès que le client appuie sur ces boutons de son côté — s'il n'a pas encore appuyé, la facture l'indique clairement ("Non envoyé", "Non tentée") plutôt que d'afficher une fausse heure.
 
+## Marquage "utilisé" désormais automatique (basé sur la durée du forfait)
+
+Avant, un ticket ne passait de "vendu" à "utilisé" que si vous cliquiez vous-même sur "Marquer utilisé" — l'application n'avait aucun moyen de savoir qu'un client avait réellement fini d'utiliser son accès, faute de connexion en direct avec le routeur. Résultat : après vos tests, un seul ticket apparaissait "utilisé" alors que vous en aviez consommé plusieurs.
+
+C'est corrigé, sans passer par le routeur : chaque forfait a maintenant une durée connue (4 HEURES/1 JOUR = 24h, 2 JOURS = 48h, etc.), et le tableau de bord calcule lui-même, à partir de l'heure de vente, quand un ticket doit être considéré comme utilisé. Dès que la durée est dépassée, le ticket passe automatiquement en "utilisé" (marqué "auto, validité expirée" dans le détail), sans action de votre part. Vous pouvez toujours le marquer manuellement plus tôt si besoin (ex. si vous savez que le client a terminé avant la fin de sa validité).
+
+⚠️ Ce calcul se déclenche à chaque fois que le tableau de bord `#admin` est ouvert (il vérifie tous les tickets vendus à ce moment-là) — gardez la page ouverte de temps en temps pour que la mise à jour se fasse, comme pour la suppression après 30 jours.
+
+## Détail complet par forfait (au clic)
+
+Dans "Stock par forfait", touchez n'importe quelle ligne (ex. "4 HEURES") pour ouvrir la liste complète de tous ses codes tickets : statut (en stock / vendu / utilisé), date d'ajout, heure de vente, numéro de téléphone du client qui l'a acheté, et heure de passage en "utilisé". Le bouton **Imprimer** de cette fenêtre fonctionne aussi ici.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

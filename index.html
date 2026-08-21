@@ -310,6 +310,7 @@
 
       <div class="card">
         <h2>Stock par forfait</h2>
+        <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Touchez une ligne pour voir le détail complet de chaque code (statut, dates, client).</p>
         <table>
           <thead><tr><th>Forfait</th><th>En stock</th><th>Vendus</th><th>Utilisés</th></tr></thead>
           <tbody id="forfaitStockTable"></tbody>
@@ -805,8 +806,10 @@
         const forfait = FORFAITS.find(f=>f.id===t.forfaitId);
         const vendAt = t.vendAt?.toMillis ? t.vendAt.toMillis() : null;
         const usedAt = t.usedAt?.toMillis ? t.usedAt.toMillis() : null;
-        rows.push({ id:d.id, code:t.code, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt, usedAtAuto: !!t.usedAtAuto });
+        rows.push({ id:d.id, code:t.code, forfaitId:t.forfaitId, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt, usedAtAuto: !!t.usedAtAuto, phone:t.vendPhone||'' });
       });
+
+      window.__allTicketRows = rows; // gardé pour le détail par forfait (fenêtre au clic)
 
       rows.sort((a,b)=>b.created-a.created);
       const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
@@ -833,10 +836,40 @@
       if(forfaitTable){
         forfaitTable.innerHTML = FORFAITS.map(f=>{
           const c = parForfait[f.id] || {stock:0,vendu:0,utilise:0};
-          return `<tr><td>${f.label}</td><td>${c.stock}</td><td>${c.vendu}</td><td>${c.utilise}</td></tr>`;
+          return `<tr class="row-action" data-forfait-id="${f.id}" style="cursor:pointer;"><td>${f.label}</td><td>${c.stock}</td><td>${c.vendu}</td><td>${c.utilise}</td></tr>`;
         }).join('');
+        forfaitTable.querySelectorAll('tr[data-forfait-id]').forEach(tr=>{
+          tr.onclick = ()=> afficherDetailForfait(tr.dataset.forfaitId);
+        });
       }
     });
+
+    window.afficherDetailForfait = function(forfaitId){
+      const forfaitDef = FORFAITS.find(f=>f.id===forfaitId);
+      const all = (window.__allTicketRows || []).filter(r=>r.forfaitId===forfaitId);
+      all.sort((a,b)=>b.created-a.created);
+      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
+      const lignes = all.map(r=>`
+        <div style="border-bottom:1px solid var(--line);padding:10px 0;">
+          <div style="display:flex;justify-content:space-between;">
+            <span style="font-weight:600;">${r.code}</span>
+            <span class="badge ${r.statut}">${r.statut}</span>
+          </div>
+          <div style="font-size:11px;color:#5A6B8C;margin-top:4px;">
+            Ajouté : ${fmt(r.created)}<br>
+            ${r.vendAt ? `Vendu : ${fmt(r.vendAt)}${r.phone ? ' · Client : '+r.phone : ''}<br>` : ''}
+            ${r.usedAt ? `Utilisé${r.usedAtAuto ? ' (auto)' : ''} : ${fmt(r.usedAt)}` : ''}
+          </div>
+        </div>`).join('') || '<div class="empty">Aucun ticket pour ce forfait.</div>';
+
+      document.getElementById('invoiceContent').innerHTML = `
+        <div style="text-align:center;font-weight:700;font-size:15px;margin-bottom:10px;">
+          Détail — ${forfaitDef ? forfaitDef.label : forfaitId} (${all.length} ticket${all.length>1?'s':''})
+        </div>
+        ${lignes}
+      `;
+      document.getElementById('invoiceModal').style.display = 'flex';
+    };
 
     const trashQ = query(collection(db,"tickets"), where("statut","in",["vendu","utilise"]));
     let trashIds = [];
