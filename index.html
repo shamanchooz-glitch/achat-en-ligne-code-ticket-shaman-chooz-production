@@ -130,7 +130,7 @@
   .lock-card button{width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--blue-deep);color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
   .lock-err{color:var(--danger);font-size:12px;margin-top:10px;display:none;}
   #app{display:none;}
-  header.top{background:var(--blue-deep);color:#fff;padding:20px;display:flex;justify-content:space-between;align-items:center;}
+  header.top{background:var(--blue-deep);color:#fff;padding:52px 20px 20px;display:flex;justify-content:space-between;align-items:center;}
   header.top h1{font-size:16px;margin:0;}
   header.top .sub{font-size:11px;opacity:.7;}
   #adminView main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
@@ -184,11 +184,16 @@
 </head>
 <body>
 
+<div id="navBar" style="position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;justify-content:space-between;pointer-events:none;padding:8px;">
+  <button onclick="history.back()" style="pointer-events:auto;background:rgba(11,27,51,.55);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;">◀ Précédent</button>
+  <button onclick="history.forward()" style="pointer-events:auto;background:rgba(11,27,51,.55);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;">Suivant ▶</button>
+</div>
+
 <!-- ============================================================
   VUE CLIENT — boutique publique (par défaut)
 ============================================================= -->
 <div id="clientView">
-  <header>
+  <header style="padding-top:52px;">
     <div class="brand-row">
       <img class="brand-photo" src="icon-192.png" alt="SHAMAN CHOOZ PRODUCTION" onclick="document.getElementById('photoModal').classList.add('show')">
       <div class="brand-name">ACHAT EN LIGNE CODES TICKETS<br>SHAMAN CHOOZ PRODUCTION</div>

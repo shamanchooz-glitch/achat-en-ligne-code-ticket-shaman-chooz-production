@@ -265,6 +265,10 @@ C'est corrigé, sans passer par le routeur : chaque forfait a maintenant une dur
 
 Dans "Stock par forfait", touchez n'importe quelle ligne (ex. "4 HEURES") pour ouvrir la liste complète de tous ses codes tickets : statut (en stock / vendu / utilisé), date d'ajout, heure de vente, numéro de téléphone du client qui l'a acheté, et heure de passage en "utilisé". Le bouton **Imprimer** de cette fenêtre fonctionne aussi ici.
 
+## Boutons Précédent / Suivant
+
+Deux petits boutons flottants ("◀ Précédent" / "Suivant ▶") apparaissent maintenant en haut de chaque page, sur la boutique comme sur l'admin — utile puisque l'application installée n'affiche pas les boutons de navigation habituels du téléphone. Ils utilisent l'historique de navigation classique (comme les flèches d'un navigateur).
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
