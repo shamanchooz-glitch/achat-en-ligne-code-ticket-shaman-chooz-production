@@ -273,6 +273,10 @@ Deux petits boutons flottants ("◀ Précédent" / "Suivant ▶") apparaissent m
 
 Avant, ouvrir la Corbeille ou le détail d'un forfait/facture ne comptait pas comme une nouvelle "page" — le bouton Précédent ne savait donc pas quoi faire. Corrigé : chaque fenêtre de détail (Corbeille, Facture, Détail par forfait) s'ajoute maintenant à l'historique de navigation, donc Précédent la referme proprement, et Suivant la rouvre si besoin.
 
+## Toutes les lignes affichées, sans limite
+
+"Stock de tickets" et "Historique des achats & factures" affichaient au maximum 60/80 lignes récentes. Corrigé : les deux affichent maintenant la totalité, en défilant simplement vers le bas.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

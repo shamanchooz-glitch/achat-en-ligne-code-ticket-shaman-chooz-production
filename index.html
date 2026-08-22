@@ -835,7 +835,7 @@
       rows.sort((a,b)=>b.created-a.created);
       const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
       const tbody = document.getElementById('ticketsTable');
-      tbody.innerHTML = rows.slice(0,60).map(r=>`
+      tbody.innerHTML = rows.map(r=>`
         <tr>
           <td>${r.code}</td>
           <td>${r.forfait}</td>
@@ -951,7 +951,7 @@
       const badgeClass = { attente:'vendu', validee:'utilise', refusee:'stock' };
       const tbody = document.getElementById('historyTable');
       if(tbody){
-        tbody.innerHTML = rows.slice(0,80).map(r=>`
+        tbody.innerHTML = rows.map(r=>`
           <tr>
             <td>${r.phone||''}</td>
             <td>${r.forfaitLabel||''}<br><span style="color:#5A6B8C;">${r.montant||0} FCFA</span></td>
