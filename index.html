@@ -139,8 +139,10 @@
   .stat .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--blue-deep);}
   .stat .l{font-size:11px;color:#5A6B8C;text-transform:uppercase;letter-spacing:.5px;}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px;}
-  .menu-pill{flex:0 0 auto;background:var(--paper);border:1px solid var(--line);color:var(--blue-deep);text-decoration:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:20px;white-space:nowrap;}
-  .menu-pill:active{background:var(--blue-deep);color:#fff;}
+  .menu-pill{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px;font-weight:600;padding:16px 18px;border-radius:12px;}
+  .menu-pill::after{content:"›";color:#8092B0;font-size:18px;font-weight:400;}
+  .menu-pill:active{background:var(--paper);}
+  .page-back{display:inline-block;color:var(--blue-mid);text-decoration:none;font-weight:600;font-size:14px;margin-bottom:14px;}
   .card h2{font-size:15px;margin:0 0 12px;}
   .order-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap;}
   .order-row:last-child{border-bottom:none;}
@@ -273,7 +275,6 @@
         <h1>Tableau de bord — Tickets Wi-Fi</h1>
         <div class="sub">WI-FI 6 SHAMAN HOTSPOT</div>
       </div>
-      <button class="btn-trash" onclick="ouvrirEcran('trash')">🗑️ Corbeille</button>
     </header>
 
     <div id="adminErrBanner" style="display:none;background:#FDEBEC;color:#8A1E27;padding:12px 40px 12px 16px;font-size:13px;position:relative;">
@@ -281,94 +282,109 @@
       <button onclick="document.getElementById('adminErrBanner').style.display='none'" style="position:absolute;right:10px;top:8px;border:none;background:none;font-size:16px;color:#8A1E27;cursor:pointer;">✕</button>
     </div>
 
-    <div id="trashModal">
-      <div class="trash-card">
-        <div class="trash-head">
-          <h2>Tickets vendus et utilisés</h2>
-          <button class="trash-close" onclick="history.back()">✕</button>
-        </div>
-        <p class="trash-sub">Retrouvez ici tous les codes déjà vendus ou utilisés. Supprimez-les un par un, ou tous en une fois.</p>
-        <div class="trash-list" id="trashList"><div class="empty">Aucun ticket vendu ou utilisé pour l'instant.</div></div>
-        <button class="btn-del-all" id="btnDelAll" disabled onclick="viderCorbeille()">Tout supprimer</button>
-      </div>
-    </div>
-
     <main>
-      <div class="stats" id="statsBox"></div>
+      <div id="page-home">
+        <div class="stats" id="statsBox"></div>
 
-      <nav id="adminMenu" style="display:flex;gap:8px;overflow-x:auto;padding:4px 2px 14px;margin-bottom:6px;border-bottom:1px solid var(--line);">
-        <a href="#sec-apercu" class="menu-pill">Vue d'ensemble</a>
-        <a href="#sec-lien" class="menu-pill">Lien à partager</a>
-        <a href="#sec-forfaits" class="menu-pill">Stock par forfait</a>
-        <a href="#sec-attente" class="menu-pill">Paiements en attente</a>
-        <a href="#sec-import" class="menu-pill">Importer</a>
-        <a href="#sec-stock" class="menu-pill">Stock de tickets</a>
-        <a href="#sec-historique" class="menu-pill">Historique & factures</a>
-        <a href="javascript:void(0)" onclick="ouvrirEcran('trash')" class="menu-pill">🗑️ Corbeille</a>
-      </nav>
-
-      <div id="sec-apercu" style="height:1px;"></div>
-
-      <div id="sec-lien" class="card">
-        <h2>Lien de votre boutique à partager</h2>
-        <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Ce lien (sans #admin) est celui à donner à vos clients, et à mettre sur le portail Mikhmon.</p>
-        <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
-          <input id="shopLinkInput" readonly style="flex:1;min-width:200px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:12px;font-family:'IBM Plex Mono',monospace;">
-          <button class="btn-primary" onclick="copyShopLink()">Copier</button>
-        </div>
-        <div id="copyMsg" style="font-size:12px;color:#0A6B4A;margin-top:6px;"></div>
-        <div id="qrcodeAdmin" style="margin-top:16px;"></div>
+        <nav id="adminMenu" style="display:flex;flex-direction:column;gap:8px;padding:4px 2px;">
+          <a href="#admin-lien" class="menu-pill">Lien de la boutique à partager</a>
+          <a href="#admin-forfaits" class="menu-pill">Stock par forfait</a>
+          <a href="#admin-attente" class="menu-pill">Paiements en attente de validation</a>
+          <a href="#admin-import" class="menu-pill">Importer des codes tickets</a>
+          <a href="#admin-stock" class="menu-pill">Stock de tickets</a>
+          <a href="#admin-historique" class="menu-pill">Historique des achats & factures</a>
+          <a href="#admin-corbeille" class="menu-pill">🗑️ Corbeille</a>
+        </nav>
       </div>
 
-      <div id="sec-forfaits" class="card">
-        <h2>Stock par forfait</h2>
-        <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Touchez une ligne pour voir le détail complet de chaque code (statut, dates, client).</p>
-        <table>
-          <thead><tr><th>Forfait</th><th>En stock</th><th>Vendus</th><th>Utilisés</th></tr></thead>
-          <tbody id="forfaitStockTable"></tbody>
-        </table>
-      </div>
-
-      <div id="sec-attente" class="card">
-        <h2>Paiements en attente de validation</h2>
-        <div id="ordersList"><div class="empty">Aucune demande en attente pour le moment.</div></div>
-      </div>
-
-      <div id="sec-import" class="card">
-        <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
-        <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
-        <div class="import-row">
-          <select id="importForfait"></select>
-        </div>
-        <div class="import-row">
-          <label class="btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
-            📁 Choisir un fichier (PDF, CSV, TXT)
-            <input type="file" id="importFile" accept=".pdf,.csv,.txt" style="display:none;">
-          </label>
-          <span id="fileMsg" style="font-size:12px;color:#5A6B8C;"></span>
-        </div>
-        <textarea id="importCodes" placeholder="62966&#10;43545&#10;54844" style="margin-top:10px;"></textarea>
-        <div class="import-row">
-          <button class="btn-primary" onclick="importCodes()">Ajouter au stock</button>
-          <span id="importMsg" style="font-size:12px;color:#0A6B4A;"></span>
+      <div id="page-lien" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Lien de votre boutique à partager</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Ce lien (sans #admin) est celui à donner à vos clients, et à mettre sur le portail Mikhmon.</p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
+            <input id="shopLinkInput" readonly style="flex:1;min-width:200px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:12px;font-family:'IBM Plex Mono',monospace;">
+            <button class="btn-primary" onclick="copyShopLink()">Copier</button>
+          </div>
+          <div id="copyMsg" style="font-size:12px;color:#0A6B4A;margin-top:6px;"></div>
+          <div id="qrcodeAdmin" style="margin-top:16px;"></div>
         </div>
       </div>
 
-      <div id="sec-stock" class="card">
-        <h2>Stock de tickets</h2>
-        <table>
-          <thead><tr><th>Code</th><th>Forfait</th><th>Statut</th><th>Ajouté</th><th></th></tr></thead>
-          <tbody id="ticketsTable"></tbody>
-        </table>
+      <div id="page-forfaits" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Stock par forfait</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Touchez une ligne pour voir le détail complet de chaque code (statut, dates, client).</p>
+          <table>
+            <thead><tr><th>Forfait</th><th>En stock</th><th>Vendus</th><th>Utilisés</th></tr></thead>
+            <tbody id="forfaitStockTable"></tbody>
+          </table>
+        </div>
       </div>
 
-      <div id="sec-historique" class="card">
-        <h2>Historique des achats & factures</h2>
-        <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Chaque ligne = un achat, du paiement jusqu'à la connexion. Imprimez une facture détaillée pour n'importe lequel.</p>
-        <table>
-          <thead><tr><th>Client</th><th>Forfait</th><th>Statut</th><th>Heures</th><th></th></tr></thead>
-          <tbody id="historyTable"></tbody>
-        </table>
+      <div id="page-attente" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Paiements en attente de validation</h2>
+          <div id="ordersList"><div class="empty">Aucune demande en attente pour le moment.</div></div>
+        </div>
+      </div>
+
+      <div id="page-import" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
+          <div class="import-row">
+            <select id="importForfait"></select>
+          </div>
+          <div class="import-row">
+            <label class="btn-primary" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+              📁 Choisir un fichier (PDF, CSV, TXT)
+              <input type="file" id="importFile" accept=".pdf,.csv,.txt" style="display:none;">
+            </label>
+            <span id="fileMsg" style="font-size:12px;color:#5A6B8C;"></span>
+          </div>
+          <textarea id="importCodes" placeholder="62966&#10;43545&#10;54844" style="margin-top:10px;"></textarea>
+          <div class="import-row">
+            <button class="btn-primary" onclick="importCodes()">Ajouter au stock</button>
+            <span id="importMsg" style="font-size:12px;color:#0A6B4A;"></span>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-stock" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Stock de tickets</h2>
+          <table>
+            <thead><tr><th>Code</th><th>Forfait</th><th>Statut</th><th>Ajouté</th><th></th></tr></thead>
+            <tbody id="ticketsTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="page-historique" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Historique des achats & factures</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Chaque ligne = un achat, du paiement jusqu'à la connexion. Imprimez une facture détaillée pour n'importe lequel.</p>
+          <table>
+            <thead><tr><th>Client</th><th>Forfait</th><th>Statut</th><th>Heures</th><th></th></tr></thead>
+            <tbody id="historyTable"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div id="page-corbeille" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>Tickets vendus et utilisés</h2>
+          <p class="trash-sub">Retrouvez ici tous les codes déjà vendus ou utilisés. Supprimez-les un par un, ou tous en une fois.</p>
+          <div class="trash-list" id="trashList"><div class="empty">Aucun ticket vendu ou utilisé pour l'instant.</div></div>
+          <button class="btn-del-all" id="btnDelAll" disabled onclick="viderCorbeille()">Tout supprimer</button>
+        </div>
       </div>
     </main>
   </div>
@@ -397,25 +413,48 @@
   window.addEventListener('offline', updateOnlineStatus);
   updateOnlineStatus();
 
-  // --- Routage simple : #admin affiche le tableau de bord, sinon la boutique ---
+  const ADMIN_PAGES = {
+    '#admin-lien': 'page-lien',
+    '#admin-forfaits': 'page-forfaits',
+    '#admin-attente': 'page-attente',
+    '#admin-import': 'page-import',
+    '#admin-stock': 'page-stock',
+    '#admin-historique': 'page-historique',
+    '#admin-corbeille': 'page-corbeille'
+  };
+
+  // --- Routage : #admin (et ses sous-pages #admin-...) affichent le
+  // tableau de bord, sinon la boutique. Chaque section a sa propre page.
   function routeView(){
     const h = location.hash;
-    const isAdmin = h === '#admin' || h.startsWith('#sec-');
+    const isAdmin = h === '#admin' || h.startsWith('#admin-');
     document.getElementById('clientView').style.display = isAdmin ? 'none' : 'block';
     document.getElementById('adminView').style.display = isAdmin ? 'block' : 'none';
+    if(isAdmin) showAdminPage(h);
+  }
+  function showAdminPage(hash){
+    const home = document.getElementById('page-home');
+    document.querySelectorAll('.admin-page').forEach(p => p.style.display = 'none');
+    const target = ADMIN_PAGES[hash];
+    if(target){
+      home.style.display = 'none';
+      const el = document.getElementById(target);
+      if(el) el.style.display = 'block';
+    } else {
+      home.style.display = 'block';
+    }
   }
   window.addEventListener('hashchange', routeView);
   routeView();
 
-  // --- Navigation Précédent/Suivant pour les fenêtres de détail (Corbeille,
-  // Facture, Détail forfait) : chaque ouverture ajoute une "page" à
-  // l'historique, pour que les boutons Précédent/Suivant sachent quoi faire.
+  // --- La fenêtre de Facture/Détail (invoiceModal) reste une fenêtre
+  // superposée, ouverte depuis n'importe quelle page — elle s'ajoute à
+  // l'historique pour que le retour du téléphone la referme proprement.
   function ouvrirEcran(nom){
     history.pushState({ecran:nom}, '', location.href);
     appliquerEcran(nom);
   }
   function appliquerEcran(nom){
-    document.getElementById('trashModal').classList.toggle('show', nom==='trash');
     document.getElementById('invoiceModal').style.display = (nom==='invoice') ? 'flex' : 'none';
   }
   window.addEventListener('popstate', (e)=>{
@@ -658,6 +697,7 @@
     if(val === ADMIN_PASSWORD){
       document.getElementById('lockScreen').style.display = 'none';
       document.getElementById('app').style.display = 'block';
+      showAdminPage(location.hash);
       bootAdmin();
     } else {
       document.getElementById('pwErr').style.display = 'block';

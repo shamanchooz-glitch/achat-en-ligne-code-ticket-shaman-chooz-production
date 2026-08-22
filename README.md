@@ -289,6 +289,10 @@ Les boutons flottants "◀ Précédent" / "Suivant ▶" ont été retirés (trop
 
 La navigation Précédent/Suivant reste possible pour les fenêtres de détail (Corbeille, Facture) via le bouton retour normal du téléphone/navigateur — elle fonctionne toujours en interne, simplement sans bouton visible surchargeant l'écran.
 
+## Chaque section a maintenant sa propre page
+
+L'admin (`#admin`) est réorganisé : la page d'accueil affiche uniquement les statistiques et un **menu** listant chaque section (Lien à partager, Stock par forfait, Paiements en attente, Importer, Stock de tickets, Historique & factures, Corbeille). Toucher une entrée du menu ouvre **sa propre page dédiée** — plus un simple défilement — avec un bouton **"← Retour"** en haut pour revenir au menu. La Corbeille est maintenant une page comme les autres, plus une fenêtre superposée.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
