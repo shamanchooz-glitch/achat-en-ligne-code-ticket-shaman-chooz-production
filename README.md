@@ -283,6 +283,12 @@ Le bouton **"🔓 Me connecter + envoyer mon code sur WhatsApp"** déclenche les
 
 ⚠️ Si le client a coupé ses données mobiles avant d'appuyer, l'envoi WhatsApp peut échouer tant qu'il ne les réactive pas — son code reste de toute façon affiché à l'écran.
 
+## Menu de navigation dans l'admin
+
+Les boutons flottants "◀ Précédent" / "Suivant ▶" ont été retirés (trop envahissants). À la place, un **menu horizontal** apparaît en haut de `#admin`, juste sous les statistiques, avec un accès direct à chaque section : Lien à partager, Stock par forfait, Paiements en attente, Importer, Stock de tickets, Historique & factures, et la Corbeille. Touchez une "pilule" pour aller directement à la section correspondante — vous savez toujours où vous êtes et où aller.
+
+La navigation Précédent/Suivant reste possible pour les fenêtres de détail (Corbeille, Facture) via le bouton retour normal du téléphone/navigateur — elle fonctionne toujours en interne, simplement sans bouton visible surchargeant l'écran.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

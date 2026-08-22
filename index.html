@@ -130,7 +130,7 @@
   .lock-card button{width:100%;margin-top:12px;padding:12px;border:none;border-radius:10px;background:var(--blue-deep);color:#fff;font-weight:700;font-size:14px;cursor:pointer;}
   .lock-err{color:var(--danger);font-size:12px;margin-top:10px;display:none;}
   #app{display:none;}
-  header.top{background:var(--blue-deep);color:#fff;padding:52px 20px 20px;display:flex;justify-content:space-between;align-items:center;}
+  header.top{background:var(--blue-deep);color:#fff;padding:20px;display:flex;justify-content:space-between;align-items:center;}
   header.top h1{font-size:16px;margin:0;}
   header.top .sub{font-size:11px;opacity:.7;}
   #adminView main{max-width:900px;margin:0 auto;padding:20px 16px 60px;}
@@ -139,6 +139,8 @@
   .stat .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--blue-deep);}
   .stat .l{font-size:11px;color:#5A6B8C;text-transform:uppercase;letter-spacing:.5px;}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px;}
+  .menu-pill{flex:0 0 auto;background:var(--paper);border:1px solid var(--line);color:var(--blue-deep);text-decoration:none;font-size:12px;font-weight:600;padding:8px 14px;border-radius:20px;white-space:nowrap;}
+  .menu-pill:active{background:var(--blue-deep);color:#fff;}
   .card h2{font-size:15px;margin:0 0 12px;}
   .order-row{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--line);gap:10px;flex-wrap:wrap;}
   .order-row:last-child{border-bottom:none;}
@@ -184,16 +186,11 @@
 </head>
 <body>
 
-<div id="navBar" style="position:fixed;top:0;left:0;right:0;z-index:1000;display:flex;justify-content:space-between;pointer-events:none;padding:8px;">
-  <button onclick="history.back()" style="pointer-events:auto;background:rgba(11,27,51,.55);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;">◀ Précédent</button>
-  <button onclick="history.forward()" style="pointer-events:auto;background:rgba(11,27,51,.55);color:#fff;border:none;border-radius:20px;padding:8px 14px;font-size:13px;font-weight:600;display:flex;align-items:center;gap:4px;">Suivant ▶</button>
-</div>
-
 <!-- ============================================================
   VUE CLIENT — boutique publique (par défaut)
 ============================================================= -->
 <div id="clientView">
-  <header style="padding-top:52px;">
+  <header>
     <div class="brand-row">
       <img class="brand-photo" src="icon-192.png" alt="SHAMAN CHOOZ PRODUCTION" onclick="document.getElementById('photoModal').classList.add('show')">
       <div class="brand-name">ACHAT EN LIGNE CODES TICKETS<br>SHAMAN CHOOZ PRODUCTION</div>
@@ -299,7 +296,20 @@
     <main>
       <div class="stats" id="statsBox"></div>
 
-      <div class="card">
+      <nav id="adminMenu" style="display:flex;gap:8px;overflow-x:auto;padding:4px 2px 14px;margin-bottom:6px;border-bottom:1px solid var(--line);">
+        <a href="#sec-apercu" class="menu-pill">Vue d'ensemble</a>
+        <a href="#sec-lien" class="menu-pill">Lien à partager</a>
+        <a href="#sec-forfaits" class="menu-pill">Stock par forfait</a>
+        <a href="#sec-attente" class="menu-pill">Paiements en attente</a>
+        <a href="#sec-import" class="menu-pill">Importer</a>
+        <a href="#sec-stock" class="menu-pill">Stock de tickets</a>
+        <a href="#sec-historique" class="menu-pill">Historique & factures</a>
+        <a href="javascript:void(0)" onclick="ouvrirEcran('trash')" class="menu-pill">🗑️ Corbeille</a>
+      </nav>
+
+      <div id="sec-apercu" style="height:1px;"></div>
+
+      <div id="sec-lien" class="card">
         <h2>Lien de votre boutique à partager</h2>
         <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Ce lien (sans #admin) est celui à donner à vos clients, et à mettre sur le portail Mikhmon.</p>
         <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;">
@@ -310,7 +320,7 @@
         <div id="qrcodeAdmin" style="margin-top:16px;"></div>
       </div>
 
-      <div class="card">
+      <div id="sec-forfaits" class="card">
         <h2>Stock par forfait</h2>
         <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Touchez une ligne pour voir le détail complet de chaque code (statut, dates, client).</p>
         <table>
@@ -319,12 +329,12 @@
         </table>
       </div>
 
-      <div class="card">
+      <div id="sec-attente" class="card">
         <h2>Paiements en attente de validation</h2>
         <div id="ordersList"><div class="empty">Aucune demande en attente pour le moment.</div></div>
       </div>
 
-      <div class="card">
+      <div id="sec-import" class="card">
         <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
         <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
         <div class="import-row">
@@ -344,7 +354,7 @@
         </div>
       </div>
 
-      <div class="card">
+      <div id="sec-stock" class="card">
         <h2>Stock de tickets</h2>
         <table>
           <thead><tr><th>Code</th><th>Forfait</th><th>Statut</th><th>Ajouté</th><th></th></tr></thead>
@@ -352,7 +362,7 @@
         </table>
       </div>
 
-      <div class="card">
+      <div id="sec-historique" class="card">
         <h2>Historique des achats & factures</h2>
         <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Chaque ligne = un achat, du paiement jusqu'à la connexion. Imprimez une facture détaillée pour n'importe lequel.</p>
         <table>
@@ -389,7 +399,8 @@
 
   // --- Routage simple : #admin affiche le tableau de bord, sinon la boutique ---
   function routeView(){
-    const isAdmin = location.hash === '#admin';
+    const h = location.hash;
+    const isAdmin = h === '#admin' || h.startsWith('#sec-');
     document.getElementById('clientView').style.display = isAdmin ? 'none' : 'block';
     document.getElementById('adminView').style.display = isAdmin ? 'block' : 'none';
   }
