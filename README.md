@@ -269,6 +269,10 @@ Dans "Stock par forfait", touchez n'importe quelle ligne (ex. "4 HEURES") pour o
 
 Deux petits boutons flottants ("◀ Précédent" / "Suivant ▶") apparaissent maintenant en haut de chaque page, sur la boutique comme sur l'admin — utile puisque l'application installée n'affiche pas les boutons de navigation habituels du téléphone. Ils utilisent l'historique de navigation classique (comme les flèches d'un navigateur).
 
+## Précédent/Suivant fonctionnent aussi avec les fenêtres de détail
+
+Avant, ouvrir la Corbeille ou le détail d'un forfait/facture ne comptait pas comme une nouvelle "page" — le bouton Précédent ne savait donc pas quoi faire. Corrigé : chaque fenêtre de détail (Corbeille, Facture, Détail par forfait) s'ajoute maintenant à l'historique de navigation, donc Précédent la referme proprement, et Suivant la rouvre si besoin.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

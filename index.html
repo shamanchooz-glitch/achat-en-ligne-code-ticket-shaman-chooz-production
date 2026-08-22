@@ -279,7 +279,7 @@
         <h1>Tableau de bord — Tickets Wi-Fi</h1>
         <div class="sub">WI-FI 6 SHAMAN HOTSPOT</div>
       </div>
-      <button class="btn-trash" onclick="document.getElementById('trashModal').classList.add('show')">🗑️ Corbeille</button>
+      <button class="btn-trash" onclick="ouvrirEcran('trash')">🗑️ Corbeille</button>
     </header>
 
     <div id="adminErrBanner" style="display:none;background:#FDEBEC;color:#8A1E27;padding:12px 40px 12px 16px;font-size:13px;position:relative;">
@@ -291,7 +291,7 @@
       <div class="trash-card">
         <div class="trash-head">
           <h2>Tickets vendus et utilisés</h2>
-          <button class="trash-close" onclick="document.getElementById('trashModal').classList.remove('show')">✕</button>
+          <button class="trash-close" onclick="history.back()">✕</button>
         </div>
         <p class="trash-sub">Retrouvez ici tous les codes déjà vendus ou utilisés. Supprimez-les un par un, ou tous en une fois.</p>
         <div class="trash-list" id="trashList"><div class="empty">Aucun ticket vendu ou utilisé pour l'instant.</div></div>
@@ -372,7 +372,7 @@
     <div id="invoiceContent" style="font-family:'IBM Plex Mono',monospace;font-size:13px;line-height:1.7;"></div>
     <div style="display:flex;gap:10px;margin-top:18px;">
       <button class="btn-primary" onclick="window.print()">Imprimer</button>
-      <button class="btn-del" onclick="document.getElementById('invoiceModal').style.display='none'">Fermer</button>
+      <button class="btn-del" onclick="history.back()">Fermer</button>
     </div>
   </div>
 </div>
@@ -398,6 +398,22 @@
   }
   window.addEventListener('hashchange', routeView);
   routeView();
+
+  // --- Navigation Précédent/Suivant pour les fenêtres de détail (Corbeille,
+  // Facture, Détail forfait) : chaque ouverture ajoute une "page" à
+  // l'historique, pour que les boutons Précédent/Suivant sachent quoi faire.
+  function ouvrirEcran(nom){
+    history.pushState({ecran:nom}, '', location.href);
+    appliquerEcran(nom);
+  }
+  function appliquerEcran(nom){
+    document.getElementById('trashModal').classList.toggle('show', nom==='trash');
+    document.getElementById('invoiceModal').style.display = (nom==='invoice') ? 'flex' : 'none';
+  }
+  window.addEventListener('popstate', (e)=>{
+    appliquerEcran(e.state && e.state.ecran ? e.state.ecran : null);
+  });
+  window.ouvrirEcran = ouvrirEcran;
 
   const JOUR = 24*60*60*1000;
   const FORFAITS = [
@@ -873,7 +889,7 @@
         </div>
         ${lignes}
       `;
-      document.getElementById('invoiceModal').style.display = 'flex';
+      ouvrirEcran('invoice');
     };
 
     const trashQ = query(collection(db,"tickets"), where("statut","in",["vendu","utilise"]));
@@ -973,7 +989,7 @@
         <hr style="border:none;border-top:1px dashed var(--line);margin:10px 0;">
         ${lignes.map(([l,v])=> l ? `<div style="display:flex;justify-content:space-between;gap:10px;"><span style="color:#5A6B8C;">${l}</span><span style="text-align:right;">${v}</span></div>` : '<hr style="border:none;border-top:1px dashed var(--line);margin:10px 0;">').join('')}
       `;
-      document.getElementById('invoiceModal').style.display = 'flex';
+      ouvrirEcran('invoice');
     };
   }
 
