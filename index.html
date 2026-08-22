@@ -235,12 +235,9 @@
         <div class="lbl">Votre code ticket</div>
         <div class="code" id="codeValue">------</div>
 
-        <a class="wa-btn" id="waLink" href="#" target="_blank" style="margin-bottom:14px;">📲 1. Recevoir mon code sur WhatsApp</a>
-
-        <div style="font-size:12px;opacity:.85;margin:10px 0;">Puis désactivez vos données mobiles (gardez seulement le Wi-Fi <b>WI-FI 6 SHAMAN HOTSPOT</b>) avant d'appuyer ci-dessous :</div>
-
-        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 2. Me connecter à Internet</button>
-        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Si une fenêtre "informations non sécurisées" apparaît, appuyez sur "Envoyer quand même" — c'est normal et sans danger.</div>
+        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 Me connecter + envoyer mon code sur WhatsApp</button>
+        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Un seul appui suffit. Si une fenêtre "informations non sécurisées" apparaît, appuyez sur "Envoyer quand même" — c'est normal et sans danger. Si vos données mobiles sont coupées, l'envoi WhatsApp peut échouer tant qu'elles ne sont pas réactivées — votre code reste affiché ici de toute façon.</div>
+        <a class="wa-btn" id="waLink" href="#" target="_blank" style="display:none;">📲 Recevoir aussi sur WhatsApp</a>
       </div>
 
       <form id="hotspotLoginForm" method="post" style="display:none;">
@@ -555,23 +552,34 @@
   const connectStatus = document.getElementById('connectStatus');
   const retryBtn = document.getElementById('retryConnectBtn');
 
-  function soumettreCodeAuRouteur(code){
-    const form = document.getElementById('hotspotLoginForm');
-    form.action = HOTSPOT_LOGIN_URL;
-    form.removeAttribute('target');
-    form.username.value = code;
-    form.password.value = code;
-    form.submit();
-  }
-
-  // Bouton 2 : uniquement la connexion internet (le bouton WhatsApp,
-  // séparé, gère l'envoi du code — voir l'explication à l'écran sur l'ordre).
+  // Un seul bouton fait les deux, l'un après l'autre : la connexion s'ouvre
+  // dans un nouvel onglet (pour garder cette page active), puis WhatsApp
+  // s'ouvre juste après, dans le même geste.
   retryBtn.addEventListener('click', ()=>{
+    const code = codeValue.textContent;
+
     if(window.__currentOrderRef){
       const { updateDoc, serverTimestamp } = window.__fb;
       updateDoc(window.__currentOrderRef, { connectAt: serverTimestamp() }).catch(()=>{});
     }
-    soumettreCodeAuRouteur(codeValue.textContent);
+
+    // 1) Connexion au Wi-Fi, dans un nouvel onglet
+    const form = document.getElementById('hotspotLoginForm');
+    form.action = HOTSPOT_LOGIN_URL;
+    form.target = "shamanHotspotConnect";
+    form.username.value = code;
+    form.password.value = code;
+    try{ window.open('', 'shamanHotspotConnect'); form.submit(); }catch(e){}
+
+    // 2) Envoi du code sur WhatsApp, juste après
+    const waUrl = document.getElementById('waLink').href;
+    if(waUrl && waUrl !== '#' && waUrl.startsWith('http')){
+      window.open(waUrl, '_blank');
+      if(window.__currentOrderRef){
+        const { updateDoc, serverTimestamp } = window.__fb;
+        updateDoc(window.__currentOrderRef, { waSentAt: serverTimestamp() }).catch(()=>{});
+      }
+    }
   });
 
   document.getElementById('waLink').addEventListener('click', ()=>{

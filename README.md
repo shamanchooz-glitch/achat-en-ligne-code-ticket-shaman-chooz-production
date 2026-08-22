@@ -277,6 +277,12 @@ Avant, ouvrir la Corbeille ou le détail d'un forfait/facture ne comptait pas co
 
 "Stock de tickets" et "Historique des achats & factures" affichaient au maximum 60/80 lignes récentes. Corrigé : les deux affichent maintenant la totalité, en défilant simplement vers le bas.
 
+## Un seul bouton : connexion puis WhatsApp
+
+Le bouton **"🔓 Me connecter + envoyer mon code sur WhatsApp"** déclenche les deux actions l'une après l'autre, au même tap : la connexion s'ouvre dans un nouvel onglet (votre page principale reste intacte, code toujours visible), puis WhatsApp s'ouvre juste après avec le message prérempli. La page ne peut pas vérifier techniquement que la connexion a réellement abouti (aucune application web ne le peut) — les deux actions se lancent donc au moment du tap plutôt que sur une "confirmation" qui n'existe pas techniquement.
+
+⚠️ Si le client a coupé ses données mobiles avant d'appuyer, l'envoi WhatsApp peut échouer tant qu'il ne les réactive pas — son code reste de toute façon affiché à l'écran.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
