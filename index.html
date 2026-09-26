@@ -62,6 +62,13 @@
 </script>
 
 <style>
+  #installBanner{display:none;background:#0B3D91;color:#fff;text-align:center;font-size:13px;padding:10px 16px;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;}
+  #installBanner span{font-weight:600;}
+  #installBtn{background:#2ED9A0;color:#04241a;border:none;border-radius:8px;padding:8px 14px;font-weight:700;font-size:13px;cursor:pointer;}
+  #iosInstallModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.6);z-index:999;align-items:center;justify-content:center;padding:20px;}
+  #iosInstallModal .box{background:#fff;border-radius:16px;padding:22px;max-width:340px;width:100%;font-size:14px;line-height:1.6;color:#0B1B33;}
+  #iosInstallModal .box h3{margin-top:0;font-size:16px;}
+  #iosInstallModal .box button{margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#0B3D91;color:#fff;font-weight:700;cursor:pointer;}
   :root{
     --blue-deep:#0B3D91; --blue-mid:#1653B8; --ink:#0B1B33;
     --paper:#F5F8FC; --signal:#2ED9A0; --ticket:#FFB020; --line:#D8E1F0;
@@ -204,6 +211,21 @@
 
   <div id="offlineBanner" style="display:none;background:#FFF3DA;color:#8A5A00;text-align:center;font-size:12px;padding:8px 16px;">
     📶 Pas de connexion internet détectée. Vous pouvez consulter les forfaits hors-ligne ; activez vos données mobiles ou le Wi-Fi le temps de finaliser le paiement Wave.
+  </div>
+
+  <div id="installBanner">
+    <span>📲 Installez l'application sur votre téléphone</span>
+    <button id="installBtn">Installer l'application</button>
+  </div>
+
+  <div id="iosInstallModal">
+    <div class="box">
+      <h3>📲 Installer l'application</h3>
+      <p>Sur iPhone/iPad, l'installation se fait en 2 étapes :</p>
+      <p>1. Appuyez sur le bouton <b>Partager</b> (le carré avec une flèche vers le haut), en bas de l'écran Safari.</p>
+      <p>2. Faites défiler et choisissez <b>« Sur l'écran d'accueil »</b>, puis <b>« Ajouter »</b>.</p>
+      <button onclick="document.getElementById('iosInstallModal').style.display='none'">J'ai compris</button>
+    </div>
   </div>
 
   <div id="photoModal" onclick="this.classList.remove('show')">
@@ -412,6 +434,61 @@
   window.addEventListener('online', updateOnlineStatus);
   window.addEventListener('offline', updateOnlineStatus);
   updateOnlineStatus();
+
+  // ---- Bouton "Installer l'application" ----
+  (function(){
+    const banner = document.getElementById('installBanner');
+    const btn = document.getElementById('installBtn');
+    const iosModal = document.getElementById('iosInstallModal');
+    let deferredPrompt = null;
+
+    function isStandalone(){
+      return window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
+    }
+    function isIOS(){
+      return /iphone|ipad|ipod/i.test(navigator.userAgent);
+    }
+
+    if(isStandalone()){
+      // déjà installée, on n'affiche jamais le bouton
+      return;
+    }
+
+    // Android / Chrome / Edge : le navigateur propose l'événement d'installation
+    window.addEventListener('beforeinstallprompt', (e)=>{
+      e.preventDefault();
+      deferredPrompt = e;
+      banner.style.display = 'flex';
+    });
+
+    window.addEventListener('appinstalled', ()=>{
+      banner.style.display = 'none';
+      deferredPrompt = null;
+    });
+
+    // iPhone/iPad (Safari) : pas d'événement natif, on affiche quand même le bouton
+    // avec des instructions manuelles, puisque l'installation y demande 2 étapes.
+    if(isIOS()){
+      banner.style.display = 'flex';
+    }
+
+    btn.addEventListener('click', async ()=>{
+      if(deferredPrompt){
+        deferredPrompt.prompt();
+        const choice = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        if(choice.outcome === 'accepted'){
+          banner.style.display = 'none';
+        }
+      } else if(isIOS()){
+        iosModal.style.display = 'flex';
+      } else {
+        // Navigateur qui ne propose ni l'un ni l'autre (ex. déjà proposé/refusé récemment) :
+        // on rappelle simplement le chemin manuel via le menu du navigateur.
+        alert("Pour installer l'application : ouvrez le menu ⋮ de votre navigateur puis choisissez « Installer l'application » ou « Ajouter à l'écran d'accueil ».");
+      }
+    });
+  })();
 
   const ADMIN_PAGES = {
     '#admin-lien': 'page-lien',

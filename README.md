@@ -293,6 +293,23 @@ La navigation Précédent/Suivant reste possible pour les fenêtres de détail (
 
 L'admin (`#admin`) est réorganisé : la page d'accueil affiche uniquement les statistiques et un **menu** listant chaque section (Lien à partager, Stock par forfait, Paiements en attente, Importer, Stock de tickets, Historique & factures, Corbeille). Toucher une entrée du menu ouvre **sa propre page dédiée** — plus un simple défilement — avec un bouton **"← Retour"** en haut pour revenir au menu. La Corbeille est maintenant une page comme les autres, plus une fenêtre superposée.
 
+## Bouton "Installer l'application" ajouté
+
+Un bandeau bleu **"📲 Installez l'application sur votre téléphone"** avec un bouton **"Installer l'application"** apparaît maintenant en haut de la boutique (page client), au lieu de dépendre uniquement de la bannière automatique du navigateur (qui n'apparaît pas toujours, ou disparaît vite) :
+- Sur Android (Chrome/Edge) : un tap installe directement l'application.
+- Sur iPhone/iPad (Safari, qui ne propose jamais d'installation en un clic) : un tap ouvre une petite fenêtre expliquant les 2 étapes (Partager → "Sur l'écran d'accueil").
+- Si l'application est déjà installée, le bandeau ne s'affiche pas.
+
+## Important : ce qui est réellement possible pour le QR code/lien "sans données ni Wi-Fi internet, même la première fois"
+
+Aucune application web au monde — celle-ci comme n'importe quel site — ne peut s'ouvrir pour la toute première fois avec un téléphone qui n'a strictement **aucun** réseau (ni Wi-Fi, ni données mobiles) : le téléphone doit forcément récupérer le code de la page depuis un serveur au moins une fois, ce qui demande un chemin réseau, quel qu'il soit. Ce n'est pas une limite de cette app, c'est vrai pour Google, Facebook, ou n'importe quel site.
+
+**Ce qui est possible, et déjà en place dans votre cas précis :** votre client est physiquement à portée du signal **"WI-FI 6 SHAMAN HOTSPOT"**, qu'il peut capter gratuitement sans données mobiles et sans être encore connecté à internet. C'est exactement le rôle du **Walled Garden** déjà expliqué à l'Étape 1 plus haut : une fois configuré sur votre routeur, un client qui se connecte simplement à ce Wi-Fi (même sans être authentifié, même sans données mobiles) peut quand même atteindre votre boutique GitHub Pages, Firebase et Wave, car ce sont les adresses autorisées en libre accès. Donc :
+- **Sans Walled Garden configuré** : le client a besoin de ses données mobiles (ou d'un autre Wi-Fi avec internet) pour ouvrir le lien/QR code la première fois.
+- **Avec Walled Garden configuré** (voir Étape 1) : le simple fait d'être connecté au Wi-Fi SHAMAN — sans données mobiles, sans "internet" au sens classique — suffit pour scanner le QR code ou cliquer le lien et voir la boutique s'ouvrir, même la toute première fois.
+
+Le Walled Garden est donc la seule pièce technique qui manque pour obtenir exactement ce que vous demandez. Une fois la boutique ouverte au moins une fois (par ce chemin ou via données mobiles), le service worker la garde ensuite en cache et elle se rouvre hors-ligne les fois suivantes.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
