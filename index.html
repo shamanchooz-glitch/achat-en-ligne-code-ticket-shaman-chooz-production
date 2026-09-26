@@ -11,6 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
   if(window['pdfjsLib']){
@@ -69,6 +70,15 @@
   #iosInstallModal .box{background:#fff;border-radius:16px;padding:22px;max-width:340px;width:100%;font-size:14px;line-height:1.6;color:#0B1B33;}
   #iosInstallModal .box h3{margin-top:0;font-size:16px;}
   #iosInstallModal .box button{margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#0B3D91;color:#fff;font-weight:700;cursor:pointer;}
+  #qrActionsRow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:10px 16px 0;}
+  #qrActionsRow button{background:#fff;border:1px solid #D8E1F0;color:#0B3D91;border-radius:8px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer;}
+  #showQrModal,#scanQrModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.94);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;}
+  #showQrModal.show,#scanQrModal.show{display:flex;}
+  #showQrModal #qrcodeFull{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
+  #showQrModal p, #scanQrModal p{font-size:13px;opacity:.85;max-width:320px;}
+  .qr-close-btn{margin-top:18px;background:#2ED9A0;color:#04241a;border:none;border-radius:8px;padding:10px 22px;font-weight:700;cursor:pointer;}
+  #scanQrVideo{width:100%;max-width:340px;border-radius:16px;background:#000;}
+  #scanQrStatus{font-size:13px;margin-top:10px;min-height:18px;}
   :root{
     --blue-deep:#0B3D91; --blue-mid:#1653B8; --ink:#0B1B33;
     --paper:#F5F8FC; --signal:#2ED9A0; --ticket:#FFB020; --line:#D8E1F0;
@@ -226,6 +236,27 @@
       <p>2. Faites défiler et choisissez <b>« Sur l'écran d'accueil »</b>, puis <b>« Ajouter »</b>.</p>
       <button onclick="document.getElementById('iosInstallModal').style.display='none'">J'ai compris</button>
     </div>
+  </div>
+
+  <div id="qrActionsRow">
+    <button id="showQrBtn">📱 Afficher mon QR code</button>
+    <button id="scanQrBtn">📷 Scanner un QR code</button>
+  </div>
+
+  <div id="showQrModal">
+    <div class="title" style="font-weight:700;font-size:15px;">WI-FI 6 SHAMAN HOTSPOT</div>
+    <p>Faites scanner cet écran par un autre téléphone pour lui ouvrir la boutique.</p>
+    <div id="qrcodeFull"></div>
+    <button class="qr-close-btn" id="closeShowQr">Fermer</button>
+  </div>
+
+  <div id="scanQrModal">
+    <div style="font-weight:700;font-size:15px;">📷 Scanner un QR code</div>
+    <p>Pointez la caméra vers le QR code affiché sur un autre téléphone ou sur l'affiche imprimée.</p>
+    <video id="scanQrVideo" playsinline muted></video>
+    <canvas id="scanQrCanvas" style="display:none;"></canvas>
+    <div id="scanQrStatus"></div>
+    <button class="qr-close-btn" id="closeScanQr">Fermer</button>
   </div>
 
   <div id="photoModal" onclick="this.classList.remove('show')">
@@ -488,6 +519,91 @@
         alert("Pour installer l'application : ouvrez le menu ⋮ de votre navigateur puis choisissez « Installer l'application » ou « Ajouter à l'écran d'accueil ».");
       }
     });
+  })();
+
+  // ---- Bouton "Afficher mon QR code" (plein écran, pour faire scanner par un autre téléphone) ----
+  (function(){
+    const shopUrl = location.origin + location.pathname;
+    const showBtn = document.getElementById('showQrBtn');
+    const showModal = document.getElementById('showQrModal');
+    const closeShowBtn = document.getElementById('closeShowQr');
+    let drawn = false;
+
+    showBtn.addEventListener('click', ()=>{
+      if(!drawn && window.QRCode){
+        new QRCode(document.getElementById('qrcodeFull'), { text: shopUrl, width: 220, height: 220 });
+        drawn = true;
+      }
+      showModal.classList.add('show');
+    });
+    closeShowBtn.addEventListener('click', ()=> showModal.classList.remove('show'));
+  })();
+
+  // ---- Bouton "Scanner un QR code" (caméra utilisée comme scanneur universel) ----
+  // Utile pour les téléphones dont l'appli Appareil photo ne détecte pas les QR
+  // automatiquement : cette page fait alors elle-même le travail du scanneur.
+  (function(){
+    const scanBtn = document.getElementById('scanQrBtn');
+    const scanModal = document.getElementById('scanQrModal');
+    const closeScanBtn = document.getElementById('closeScanQr');
+    const video = document.getElementById('scanQrVideo');
+    const canvas = document.getElementById('scanQrCanvas');
+    const statusEl = document.getElementById('scanQrStatus');
+    let stream = null;
+    let rafId = null;
+    let found = false;
+
+    function stopScan(){
+      found = true;
+      if(rafId) cancelAnimationFrame(rafId);
+      if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+      scanModal.classList.remove('show');
+      statusEl.textContent = '';
+    }
+
+    function tick(){
+      if(found) return;
+      if(video.readyState === video.HAVE_ENOUGH_DATA){
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+        if(code && code.data){
+          found = true;
+          statusEl.textContent = '✅ QR code détecté — ouverture...';
+          if(stream){ stream.getTracks().forEach(t => t.stop()); stream = null; }
+          setTimeout(()=>{
+            const text = code.data.trim();
+            if(/^https?:\/\//i.test(text)){
+              location.href = text;
+            } else {
+              scanModal.classList.remove('show');
+              alert("Contenu du QR code : " + text);
+            }
+          }, 300);
+          return;
+        }
+      }
+      rafId = requestAnimationFrame(tick);
+    }
+
+    scanBtn.addEventListener('click', async ()=>{
+      found = false;
+      statusEl.textContent = 'Ouverture de la caméra...';
+      scanModal.classList.add('show');
+      try{
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        video.srcObject = stream;
+        await video.play();
+        statusEl.textContent = '';
+        rafId = requestAnimationFrame(tick);
+      } catch(err){
+        statusEl.textContent = "⚠️ Impossible d'accéder à la caméra. Vérifiez que vous avez autorisé l'accès à la caméra pour ce site, dans les réglages du navigateur.";
+      }
+    });
+    closeScanBtn.addEventListener('click', stopScan);
   })();
 
   const ADMIN_PAGES = {

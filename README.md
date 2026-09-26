@@ -310,6 +310,13 @@ Aucune application web au monde — celle-ci comme n'importe quel site — ne pe
 
 Le Walled Garden est donc la seule pièce technique qui manque pour obtenir exactement ce que vous demandez. Une fois la boutique ouverte au moins une fois (par ce chemin ou via données mobiles), le service worker la garde ensuite en cache et elle se rouvre hors-ligne les fois suivantes.
 
+## Deux nouveaux boutons QR code sur la boutique
+
+- **"📱 Afficher mon QR code"** : ouvre en plein écran le QR code de votre boutique (le même lien que `index.html`), pour qu'un autre téléphone le scanne directement sur cet écran — pratique quand deux clients sont côte à côte.
+- **"📷 Scanner un QR code"** : ouvre la caméra du téléphone (autorisation à accepter la première fois) et scanne automatiquement n'importe quel QR code pointé devant elle — le vôtre ou un autre. Dès qu'un code est reconnu, la page l'ouvre toute seule, exactement comme le ferait un scanneur natif. Cette fonctionnalité rend service aux téléphones d'entrée de gamme dont l'appli Appareil photo ne détecte pas les QR codes automatiquement.
+
+⚠️ **Une seule limite à bien comprendre** : le bouton "Scanner" fait partie de la boutique elle-même — il faut donc que la boutique soit **déjà ouverte** sur le téléphone qui scanne (aujourd'hui ou une fois auparavant, même hors-ligne grâce au cache). Il ne peut pas servir à un client qui n'a encore jamais ouvert le lien : pour ce premier accès, il lui faut toujours soit ses données mobiles, soit se connecter au Wi-Fi SHAMAN (Walled Garden), comme expliqué plus haut. Le scanner est surtout utile ensuite : par exemple vous (avec la boutique déjà ouverte) pouvez scanner le QR imprimé pour un client dont le téléphone ne détecte pas les QR codes, ou un client déjà connecté peut faire profiter un ami à côté de lui.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
