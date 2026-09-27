@@ -75,7 +75,6 @@
   #showQrModal,#scanQrModal,#wifiQrModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.94);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;}
   #showQrModal.show,#scanQrModal.show,#wifiQrModal.show{display:flex;}
   #showQrModal #qrcodeFull{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
-  #wifiQrModal #qrcodeWifi{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
   #showQrModal p, #scanQrModal p, #wifiQrModal p{font-size:13px;opacity:.85;max-width:320px;}
   .qr-close-btn{margin-top:18px;background:#2ED9A0;color:#04241a;border:none;border-radius:8px;padding:10px 22px;font-weight:700;cursor:pointer;}
   #scanQrVideo{width:100%;max-width:340px;border-radius:16px;background:#000;}
@@ -242,14 +241,12 @@
   <div id="qrActionsRow">
     <button id="showQrBtn">📱 Afficher mon QR code</button>
     <button id="scanQrBtn">📷 Scanner un QR code</button>
-    <button id="wifiQrBtn">📶 QR Wi-Fi rapide</button>
+    <button id="wifiQrBtn">📶 Se connecter au Wi-Fi SHAMAN</button>
   </div>
 
   <div id="wifiQrModal">
     <div style="font-weight:700;font-size:15px;">📶 Rejoindre le Wi-Fi SHAMAN</div>
-    <p>Faites scanner ce QR code avec l'appareil photo natif d'un autre téléphone (pas besoin d'ouvrir une application) : il proposera de rejoindre le réseau en un tap, sans avoir à le chercher dans les réglages.</p>
-    <div id="qrcodeWifi"></div>
-    <p style="font-weight:700;">WI-FI 6 SHAMAN HOTSPOT</p>
+    <p id="wifiModalText">Dans la liste des réseaux Wi-Fi qui vient de s'ouvrir, touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> — aucun mot de passe n'est demandé.</p>
     <button class="qr-close-btn" id="closeWifiQr">Fermer</button>
   </div>
 
@@ -549,22 +546,30 @@
     closeShowBtn.addEventListener('click', ()=> showModal.classList.remove('show'));
   })();
 
-  // ---- Bouton "QR Wi-Fi rapide" (format WIFI: reconnu par l'appareil photo natif) ----
-  // Réseau ouvert (aucun mot de passe) : le tap "Rejoindre" suffit, aucune saisie requise.
+  // ---- Bouton "Se connecter au Wi-Fi SHAMAN" ----
+  // Sur Android : ouvre directement l'écran des réglages Wi-Fi du téléphone (raccourci officiel Chrome).
+  // Sur iPhone : Apple ne permet à aucun site d'ouvrir cet écran, on affiche donc le chemin à suivre.
+  // Dans les deux cas, un dernier tap sur le nom du réseau reste obligatoire (aucun mot de passe requis) :
+  // aucune technologie web ne peut faire ce tap final à la place du client (règle de sécurité Android/iOS).
   (function(){
-    const WIFI_SSID = 'WI-FI 6 SHAMAN HOTSPOT';
     const wifiBtn = document.getElementById('wifiQrBtn');
     const wifiModal = document.getElementById('wifiQrModal');
     const closeWifiBtn = document.getElementById('closeWifiQr');
-    let drawn = false;
+    const wifiModalText = document.getElementById('wifiModalText');
+
+    function isAndroid(){
+      return /android/i.test(navigator.userAgent);
+    }
 
     wifiBtn.addEventListener('click', ()=>{
-      if(!drawn && window.QRCode){
-        const wifiString = 'WIFI:T:nopass;S:' + WIFI_SSID + ';;';
-        new QRCode(document.getElementById('qrcodeWifi'), { text: wifiString, width: 220, height: 220 });
-        drawn = true;
+      if(isAndroid()){
+        wifiModalText.innerHTML = 'Dans la liste des réseaux Wi-Fi qui vient de s\'ouvrir, touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> — aucun mot de passe n\'est demandé.';
+        window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
+        setTimeout(()=> wifiModal.classList.add('show'), 400);
+      } else {
+        wifiModalText.innerHTML = 'Ouvrez <b>Réglages → Wi-Fi</b>, puis touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> dans la liste — aucun mot de passe n\'est demandé.';
+        wifiModal.classList.add('show');
       }
-      wifiModal.classList.add('show');
     });
     closeWifiBtn.addEventListener('click', ()=> wifiModal.classList.remove('show'));
   })();

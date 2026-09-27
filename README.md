@@ -328,6 +328,14 @@ Ajouté sur la page boutique et sur l'affiche imprimable (`qr-code.html`, colonn
 
 ⚠️ **Ce que ça ne fait toujours pas** : allumer le Wi-Fi si le téléphone l'a complètement désactivé (l'OS ne le permet à aucune page web, même via ce format), ni fusionner les deux étapes en un seul scan qui ouvrirait le Wi-Fi ET la boutique en même temps — les deux formats de QR (`WIFI:` et lien web) sont mutuellement exclusifs pour l'appareil photo natif, d'où les deux QR séparés.
 
+## Nouveau : bouton "📶 Se connecter au Wi-Fi SHAMAN" (remplace le QR Wi-Fi)
+
+Le QR Wi-Fi a été retiré de la page boutique : il ne fonctionnait que sur les téléphones dont l'appareil photo natif sait déjà reconnaître les QR codes tout seul — inutile sur les autres. À la place, un bouton **"📶 Se connecter au Wi-Fi SHAMAN"** est disponible pour la personne déjà dans l'application, sur son propre téléphone :
+- **Sur Android** : le bouton ouvre directement l'écran des réglages Wi-Fi du téléphone (raccourci officiel de Chrome, `intent:#Intent;action=android.settings.WIFI_SETTINGS;end`), sans passer par le menu des réglages.
+- **Sur iPhone** : Apple ne permet à aucun site web d'ouvrir cet écran directement (restriction système), donc le bouton affiche le chemin à suivre (Réglages → Wi-Fi).
+
+⚠️ **Dans les deux cas**, un dernier tap sur "WI-FI 6 SHAMAN HOTSPOT" dans la liste reste obligatoire (le réseau étant ouvert, aucun mot de passe n'est à taper). Ce tap final ne peut être supprimé par aucune technologie web, sur aucun téléphone, aucun système : c'est une règle de sécurité imposée par Android et iOS eux-mêmes, pas une limite de cette application. Le gain réel de ce bouton est de sauter directement à l'écran Wi-Fi côté Android, au lieu de devoir chercher soi-même dans les menus.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
