@@ -7,7 +7,7 @@
 // mettez à jour index.html, sinon les téléphones qui ont déjà installé
 // l'app continueront d'afficher l'ancienne version en cache.
 
-const CACHE_NAME = "shaman-tickets-v24";
+const CACHE_NAME = "shaman-tickets-v25";
 const APP_SHELL = [
   "./manifest.json",
   "./icon-192.png",
@@ -34,7 +34,7 @@ self.addEventListener("fetch", (event) => {
 
   const url = event.request.url;
   // Firebase / Wave doivent toujours passer par le réseau (jamais mis en cache).
-  if (url.includes("firestore") || url.includes("googleapis") || url.includes("gstatic") || url.includes("wave.com") || url.includes("cdnjs")) {
+  if (url.includes("firestore") || url.includes("googleapis") || url.includes("gstatic") || url.includes("wave.com") || url.includes("cdnjs") || url.includes("jsdelivr")) {
     return;
   }
 

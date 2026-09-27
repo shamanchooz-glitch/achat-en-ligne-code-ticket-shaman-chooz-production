@@ -11,7 +11,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script>
   if(window['pdfjsLib']){
@@ -591,6 +591,12 @@
 
     scanBtn.addEventListener('click', async ()=>{
       found = false;
+      if(!window.jsQR){
+        statusEl.textContent = '';
+        scanModal.classList.add('show');
+        statusEl.textContent = "⚠️ Le lecteur de QR code n'a pas pu se charger (vérifiez votre connexion internet), réessayez.";
+        return;
+      }
       statusEl.textContent = 'Ouverture de la caméra...';
       scanModal.classList.add('show');
       try{

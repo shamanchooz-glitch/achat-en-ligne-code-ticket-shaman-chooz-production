@@ -136,6 +136,7 @@ Pour que vos clients puissent ouvrir la boutique et payer *avant* d'être connec
 - `*.firebaseapp.com`
 - `pay.wave.com` et `*.wave.com`
 - `fonts.googleapis.com`, `fonts.gstatic.com`, et `cdnjs.cloudflare.com` (QR code, lecteur PDF)
+- `cdn.jsdelivr.net` (lecteur de QR code par caméra)
 
 **Protocole de test recommandé, chez vous, avant de proposer ça aux clients :**
 1. Connectez un téléphone test au Wi-Fi **WI-FI 6 SHAMAN HOTSPOT**.
@@ -316,6 +317,8 @@ Le Walled Garden est donc la seule pièce technique qui manque pour obtenir exac
 - **"📷 Scanner un QR code"** : ouvre la caméra du téléphone (autorisation à accepter la première fois) et scanne automatiquement n'importe quel QR code pointé devant elle — le vôtre ou un autre. Dès qu'un code est reconnu, la page l'ouvre toute seule, exactement comme le ferait un scanneur natif. Cette fonctionnalité rend service aux téléphones d'entrée de gamme dont l'appli Appareil photo ne détecte pas les QR codes automatiquement.
 
 ⚠️ **Une seule limite à bien comprendre** : le bouton "Scanner" fait partie de la boutique elle-même — il faut donc que la boutique soit **déjà ouverte** sur le téléphone qui scanne (aujourd'hui ou une fois auparavant, même hors-ligne grâce au cache). Il ne peut pas servir à un client qui n'a encore jamais ouvert le lien : pour ce premier accès, il lui faut toujours soit ses données mobiles, soit se connecter au Wi-Fi SHAMAN (Walled Garden), comme expliqué plus haut. Le scanner est surtout utile ensuite : par exemple vous (avec la boutique déjà ouverte) pouvez scanner le QR imprimé pour un client dont le téléphone ne détecte pas les QR codes, ou un client déjà connecté peut faire profiter un ami à côté de lui.
+
+**Bug corrigé : le scanner n'ouvrait aucun QR code.** La librairie de lecture (jsQR) était chargée depuis une adresse qui n'existait pas réellement sur ce fournisseur (`cdnjs`), donc elle ne se chargeait jamais et la caméra, bien qu'elle s'ouvrait, ne détectait jamais rien. Corrigée avec la bonne adresse (`cdn.jsdelivr.net`) — pensez à ajouter ce domaine à votre liste Walled Garden ci-dessus si vous voulez que le scanner fonctionne aussi pour un client connecté uniquement au Wi-Fi SHAMAN (sans données mobiles). Un message d'erreur s'affiche désormais si la librairie ne se charge pas, au lieu d'un scanner silencieusement inactif.
 
 ## Prochaine étape possible
 
