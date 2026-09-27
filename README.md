@@ -320,6 +320,14 @@ Le Walled Garden est donc la seule pièce technique qui manque pour obtenir exac
 
 **Bug corrigé : le scanner n'ouvrait aucun QR code.** La librairie de lecture (jsQR) était chargée depuis une adresse qui n'existait pas réellement sur ce fournisseur (`cdnjs`), donc elle ne se chargeait jamais et la caméra, bien qu'elle s'ouvrait, ne détectait jamais rien. Corrigée avec la bonne adresse (`cdn.jsdelivr.net`) — pensez à ajouter ce domaine à votre liste Walled Garden ci-dessus si vous voulez que le scanner fonctionne aussi pour un client connecté uniquement au Wi-Fi SHAMAN (sans données mobiles). Un message d'erreur s'affiche désormais si la librairie ne se charge pas, au lieu d'un scanner silencieusement inactif.
 
+## Nouveau : bouton "📶 QR Wi-Fi rapide" (rejoindre le réseau sans passer par les réglages)
+
+Ajouté sur la page boutique et sur l'affiche imprimable (`qr-code.html`, colonne de gauche). Ce QR code n'utilise pas notre scanner : c'est l'appareil photo natif du téléphone (celui déjà installé, aucune appli requise) qui le reconnaît automatiquement au format standard `WIFI:` et propose un bouton "Rejoindre ce réseau" en un seul tap, votre réseau étant ouvert (aucun mot de passe).
+
+**Ce que ça permet concrètement, combiné à ce qui existe déjà :** un client sans données mobiles ni Wi-Fi peut désormais, avec son seul appareil photo natif (aucune appli à ouvrir) : 1) scanner le QR "Rejoindre le Wi-Fi" → un tap → il est connecté au réseau SHAMAN ; 2) scanner ensuite le QR "Ouvrir la boutique" → grâce au Walled Garden déjà configuré, la boutique s'ouvre directement, même sans données mobiles et même la toute première fois.
+
+⚠️ **Ce que ça ne fait toujours pas** : allumer le Wi-Fi si le téléphone l'a complètement désactivé (l'OS ne le permet à aucune page web, même via ce format), ni fusionner les deux étapes en un seul scan qui ouvrirait le Wi-Fi ET la boutique en même temps — les deux formats de QR (`WIFI:` et lien web) sont mutuellement exclusifs pour l'appareil photo natif, d'où les deux QR séparés.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

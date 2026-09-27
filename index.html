@@ -72,10 +72,11 @@
   #iosInstallModal .box button{margin-top:14px;width:100%;padding:10px;border:none;border-radius:8px;background:#0B3D91;color:#fff;font-weight:700;cursor:pointer;}
   #qrActionsRow{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:10px 16px 0;}
   #qrActionsRow button{background:#fff;border:1px solid #D8E1F0;color:#0B3D91;border-radius:8px;padding:8px 14px;font-weight:700;font-size:12.5px;cursor:pointer;}
-  #showQrModal,#scanQrModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.94);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;}
-  #showQrModal.show,#scanQrModal.show{display:flex;}
+  #showQrModal,#scanQrModal,#wifiQrModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.94);z-index:999;flex-direction:column;align-items:center;justify-content:center;padding:20px;text-align:center;color:#fff;}
+  #showQrModal.show,#scanQrModal.show,#wifiQrModal.show{display:flex;}
   #showQrModal #qrcodeFull{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
-  #showQrModal p, #scanQrModal p{font-size:13px;opacity:.85;max-width:320px;}
+  #wifiQrModal #qrcodeWifi{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
+  #showQrModal p, #scanQrModal p, #wifiQrModal p{font-size:13px;opacity:.85;max-width:320px;}
   .qr-close-btn{margin-top:18px;background:#2ED9A0;color:#04241a;border:none;border-radius:8px;padding:10px 22px;font-weight:700;cursor:pointer;}
   #scanQrVideo{width:100%;max-width:340px;border-radius:16px;background:#000;}
   #scanQrStatus{font-size:13px;margin-top:10px;min-height:18px;}
@@ -241,6 +242,15 @@
   <div id="qrActionsRow">
     <button id="showQrBtn">📱 Afficher mon QR code</button>
     <button id="scanQrBtn">📷 Scanner un QR code</button>
+    <button id="wifiQrBtn">📶 QR Wi-Fi rapide</button>
+  </div>
+
+  <div id="wifiQrModal">
+    <div style="font-weight:700;font-size:15px;">📶 Rejoindre le Wi-Fi SHAMAN</div>
+    <p>Faites scanner ce QR code avec l'appareil photo natif d'un autre téléphone (pas besoin d'ouvrir une application) : il proposera de rejoindre le réseau en un tap, sans avoir à le chercher dans les réglages.</p>
+    <div id="qrcodeWifi"></div>
+    <p style="font-weight:700;">WI-FI 6 SHAMAN HOTSPOT</p>
+    <button class="qr-close-btn" id="closeWifiQr">Fermer</button>
   </div>
 
   <div id="showQrModal">
@@ -537,6 +547,26 @@
       showModal.classList.add('show');
     });
     closeShowBtn.addEventListener('click', ()=> showModal.classList.remove('show'));
+  })();
+
+  // ---- Bouton "QR Wi-Fi rapide" (format WIFI: reconnu par l'appareil photo natif) ----
+  // Réseau ouvert (aucun mot de passe) : le tap "Rejoindre" suffit, aucune saisie requise.
+  (function(){
+    const WIFI_SSID = 'WI-FI 6 SHAMAN HOTSPOT';
+    const wifiBtn = document.getElementById('wifiQrBtn');
+    const wifiModal = document.getElementById('wifiQrModal');
+    const closeWifiBtn = document.getElementById('closeWifiQr');
+    let drawn = false;
+
+    wifiBtn.addEventListener('click', ()=>{
+      if(!drawn && window.QRCode){
+        const wifiString = 'WIFI:T:nopass;S:' + WIFI_SSID + ';;';
+        new QRCode(document.getElementById('qrcodeWifi'), { text: wifiString, width: 220, height: 220 });
+        drawn = true;
+      }
+      wifiModal.classList.add('show');
+    });
+    closeWifiBtn.addEventListener('click', ()=> wifiModal.classList.remove('show'));
   })();
 
   // ---- Bouton "Scanner un QR code" (caméra utilisée comme scanneur universel) ----
