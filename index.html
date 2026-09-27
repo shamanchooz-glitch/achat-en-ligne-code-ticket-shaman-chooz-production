@@ -349,6 +349,7 @@
 
         <nav id="adminMenu" style="display:flex;flex-direction:column;gap:8px;padding:4px 2px;">
           <a href="#admin-lien" class="menu-pill">Lien de la boutique à partager</a>
+          <a href="#admin-qrgen" class="menu-pill">🔲 Générateur de QR code universel</a>
           <a href="#admin-forfaits" class="menu-pill">Stock par forfait</a>
           <a href="#admin-attente" class="menu-pill">Paiements en attente de validation</a>
           <a href="#admin-import" class="menu-pill">Importer des codes tickets</a>
@@ -369,6 +370,22 @@
           </div>
           <div id="copyMsg" style="font-size:12px;color:#0A6B4A;margin-top:6px;"></div>
           <div id="qrcodeAdmin" style="margin-top:16px;"></div>
+        </div>
+      </div>
+
+      <div id="page-qrgen" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>🔲 Générateur de QR code universel</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Générez le QR code de n'importe quel lien, texte, numéro ou message — utile en cas de besoin urgent, indépendamment du reste de l'application. Fonctionne avec tous les scanneurs, anciens et récents.</p>
+          <textarea id="qrgenInput" rows="3" placeholder="Collez ou tapez ici un lien, un numéro, un texte..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;font-family:inherit;resize:vertical;"></textarea>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:10px;">
+            <button class="btn-primary" id="qrgenBtn">Générer le QR code</button>
+            <button type="button" id="qrgenClearBtn">Effacer</button>
+          </div>
+          <div id="qrgenMsg" style="font-size:12px;color:#8A1E27;margin-top:8px;"></div>
+          <div id="qrgenResult" style="margin-top:16px;"></div>
+          <a id="qrgenDownload" download="qrcode.png" style="display:none;margin-top:10px;" class="btn-primary">📥 Télécharger l'image</a>
         </div>
       </div>
 
@@ -593,6 +610,46 @@
     });
   })();
 
+  // ---- Générateur de QR code universel (espace admin uniquement) ----
+  (function(){
+    const input = document.getElementById('qrgenInput');
+    const btn = document.getElementById('qrgenBtn');
+    const clearBtn = document.getElementById('qrgenClearBtn');
+    const result = document.getElementById('qrgenResult');
+    const msg = document.getElementById('qrgenMsg');
+    const downloadLink = document.getElementById('qrgenDownload');
+    if(!input || !btn) return;
+
+    btn.addEventListener('click', ()=>{
+      const text = input.value.trim();
+      msg.textContent = '';
+      downloadLink.style.display = 'none';
+      result.innerHTML = '';
+      if(!text){
+        msg.textContent = "Tapez ou collez d'abord un lien, un numéro ou un texte.";
+        return;
+      }
+      try{
+        new QRCode(result, { text: text, width: 260, height: 260 });
+        const canvas = result.querySelector('canvas');
+        if(canvas){
+          downloadLink.href = canvas.toDataURL('image/png');
+          downloadLink.style.display = 'inline-block';
+        }
+      } catch(err){
+        result.innerHTML = '';
+        msg.textContent = '⚠️ Ce contenu est trop long pour tenir dans un seul QR code. Essayez avec un texte plus court.';
+      }
+    });
+
+    clearBtn.addEventListener('click', ()=>{
+      input.value = '';
+      result.innerHTML = '';
+      msg.textContent = '';
+      downloadLink.style.display = 'none';
+    });
+  })();
+
   // ---- Bouton "Se connecter au Wi-Fi SHAMAN" ----
   // Sur Android : ouvre directement l'écran des réglages Wi-Fi du téléphone (raccourci officiel Chrome).
   // Sur iPhone : Apple ne permet à aucun site d'ouvrir cet écran, on affiche donc le chemin à suivre.
@@ -696,6 +753,7 @@
 
   const ADMIN_PAGES = {
     '#admin-lien': 'page-lien',
+    '#admin-qrgen': 'page-qrgen',
     '#admin-forfaits': 'page-forfaits',
     '#admin-attente': 'page-attente',
     '#admin-import': 'page-import',

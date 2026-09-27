@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Générateur de QR code universel</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+  body{font-family:sans-serif;background:#F5F8FC;text-align:center;padding:30px 16px;color:#0B1B33;}
+  h1{font-size:19px;margin-bottom:6px;}
+  p.intro{font-size:13px;color:#5A6B8C;max-width:420px;margin:0 auto 18px;}
+  textarea{width:90%;max-width:420px;min-height:70px;padding:10px 12px;border-radius:8px;border:1px solid #D8E1F0;font-size:14px;font-family:inherit;resize:vertical;margin:0 0 10px;}
+  .btn-row{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:14px;}
+  button{padding:10px 18px;border:none;border-radius:8px;font-weight:700;cursor:pointer;}
+  #genBtn{background:#0B3D91;color:#fff;}
+  #clearBtn{background:#fff;border:1px solid #D8E1F0;color:#0B3D91;}
+  #msg{font-size:12px;color:#8A1E27;min-height:16px;margin-bottom:8px;}
+  #resultArea{display:none;margin-top:10px;display:inline-block;background:#fff;padding:24px;border-radius:16px;box-shadow:0 2px 10px rgba(0,0,0,.08);}
+  #qrcode{margin:0 auto;}
+  #downloadLink{display:none;margin-top:14px;background:#2ED9A0;color:#04241a;padding:10px 18px;border-radius:8px;font-weight:700;text-decoration:none;}
+  @media print{
+    body *{visibility:hidden;}
+    #resultArea, #resultArea *{visibility:visible;}
+    #resultArea{position:absolute;top:0;left:0;box-shadow:none;}
+  }
+</style>
+</head>
+<body>
+  <h1>🔲 Générateur de QR code universel</h1>
+  <p class="intro">Collez ou tapez n'importe quoi — un lien, un numéro, un texte, un message — et générez son QR code instantanément. Fonctionne avec tous les scanneurs, anciens et récents.</p>
+
+  <textarea id="qrInput" placeholder="Collez ou tapez ici un lien, un numéro, un texte..."></textarea>
+  <br>
+  <div class="btn-row">
+    <button id="genBtn">Générer le QR code</button>
+    <button id="clearBtn" type="button">Effacer</button>
+  </div>
+  <div id="msg"></div>
+
+  <div id="resultArea">
+    <div id="qrcode"></div>
+  </div>
+  <br>
+  <a id="downloadLink" download="qrcode.png">📥 Télécharger l'image</a>
+  <br><br>
+  <button id="printBtn" style="display:none;background:#fff;border:1px solid #D8E1F0;color:#0B3D91;">Imprimer</button>
+
+<script>
+  const input = document.getElementById('qrInput');
+  const genBtn = document.getElementById('genBtn');
+  const clearBtn = document.getElementById('clearBtn');
+  const msg = document.getElementById('msg');
+  const resultArea = document.getElementById('resultArea');
+  const qrcodeDiv = document.getElementById('qrcode');
+  const downloadLink = document.getElementById('downloadLink');
+  const printBtn = document.getElementById('printBtn');
+
+  genBtn.addEventListener('click', ()=>{
+    const text = input.value.trim();
+    msg.textContent = '';
+    downloadLink.style.display = 'none';
+    printBtn.style.display = 'none';
+    resultArea.style.display = 'none';
+    qrcodeDiv.innerHTML = '';
+    if(!text){
+      msg.textContent = "Tapez ou collez d'abord un lien, un numéro ou un texte.";
+      return;
+    }
+    try{
+      new QRCode(qrcodeDiv, { text: text, width: 260, height: 260 });
+      resultArea.style.display = 'inline-block';
+      const canvas = qrcodeDiv.querySelector('canvas');
+      if(canvas){
+        downloadLink.href = canvas.toDataURL('image/png');
+        downloadLink.style.display = 'inline-block';
+      }
+      printBtn.style.display = 'inline-block';
+    } catch(err){
+      qrcodeDiv.innerHTML = '';
+      resultArea.style.display = 'none';
+      msg.textContent = '⚠️ Ce contenu est trop long pour tenir dans un seul QR code. Essayez avec un texte plus court.';
+    }
+  });
+
+  clearBtn.addEventListener('click', ()=>{
+    input.value = '';
+    qrcodeDiv.innerHTML = '';
+    resultArea.style.display = 'none';
+    msg.textContent = '';
+    downloadLink.style.display = 'none';
+    printBtn.style.display = 'none';
+  });
+
+  printBtn.addEventListener('click', ()=> window.print());
+</script>
+</body>
+</html>

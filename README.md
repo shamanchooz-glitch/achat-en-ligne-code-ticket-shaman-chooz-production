@@ -344,6 +344,12 @@ Ouvre le menu de partage natif du téléphone (toutes les applications installé
 
 Les 4 boutons ("Afficher mon QR code", "Scanner un QR code", "Se connecter au Wi-Fi SHAMAN", "Partager le lien") sont maintenant sur 2 lignes de 2, au lieu d'être empilés verticalement. La limite entre le bleu et le blanc n'est plus une hauteur fixe en pixels (qui cassait à chaque ajout de bouton) : elle se recalcule désormais automatiquement selon la hauteur réelle du contenu (titre, bannières, boutons), donc les boutons restent toujours sur le fond bleu, juste au-dessus du blanc, quel que soit le nombre de lignes qu'ils prennent.
 
+## Nouveau : "🔲 Générateur de QR code universel" (espace admin uniquement)
+
+Nouvel onglet dans le tableau de bord (menu principal). Vous pouvez y taper ou coller n'importe quoi — un lien, un numéro de téléphone, un message, un texte — et générer son QR code en un clic, indépendamment du reste de l'application. Un bouton "📥 Télécharger l'image" permet de récupérer le QR en image PNG (utile pour l'imprimer ou l'envoyer). Il utilise la même librairie que le reste de l'app (qrcodejs), avec le niveau de correction d'erreur le plus élevé par défaut : le QR généré reste lisible même partiellement abîmé ou mal cadré, et fonctionne avec n'importe quel scanneur, ancien ou récent.
+
+⚠️ Un QR code a une capacité limitée (environ 1000 à 1200 caractères avec ce niveau de correction) : un texte trop long affichera un message d'erreur clair au lieu de planter.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
