@@ -340,6 +340,10 @@ Le QR Wi-Fi a été retiré de la page boutique : il ne fonctionnait que sur les
 
 Ouvre le menu de partage natif du téléphone (toutes les applications installées : WhatsApp, Messenger, SMS, Mail, etc.), le même principe que le bouton "Partager" déjà en place sur le fil d'actualité. Sur les rares navigateurs qui ne le supportent pas, le lien est copié automatiquement dans le presse-papier avec un message expliquant de le coller où vous voulez.
 
+## Boutons réorganisés en grille 2×2
+
+Les 4 boutons ("Afficher mon QR code", "Scanner un QR code", "Se connecter au Wi-Fi SHAMAN", "Partager le lien") sont maintenant sur 2 lignes de 2, au lieu d'être empilés verticalement. La limite entre le bleu et le blanc n'est plus une hauteur fixe en pixels (qui cassait à chaque ajout de bouton) : elle se recalcule désormais automatiquement selon la hauteur réelle du contenu (titre, bannières, boutons), donc les boutons restent toujours sur le fond bleu, juste au-dessus du blanc, quel que soit le nombre de lignes qu'ils prennent.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
