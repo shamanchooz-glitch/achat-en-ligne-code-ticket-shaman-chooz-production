@@ -336,6 +336,10 @@ Le QR Wi-Fi a été retiré de la page boutique : il ne fonctionnait que sur les
 
 ⚠️ **Dans les deux cas**, un dernier tap sur "WI-FI 6 SHAMAN HOTSPOT" dans la liste reste obligatoire (le réseau étant ouvert, aucun mot de passe n'est à taper). Ce tap final ne peut être supprimé par aucune technologie web, sur aucun téléphone, aucun système : c'est une règle de sécurité imposée par Android et iOS eux-mêmes, pas une limite de cette application. Le gain réel de ce bouton est de sauter directement à l'écran Wi-Fi côté Android, au lieu de devoir chercher soi-même dans les menus.
 
+## Nouveau : bouton "🔗 Partager le lien"
+
+Ouvre le menu de partage natif du téléphone (toutes les applications installées : WhatsApp, Messenger, SMS, Mail, etc.), le même principe que le bouton "Partager" déjà en place sur le fil d'actualité. Sur les rares navigateurs qui ne le supportent pas, le lien est copié automatiquement dans le presse-papier avec un message expliquant de le coller où vous voulez.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

@@ -242,6 +242,7 @@
     <button id="showQrBtn">📱 Afficher mon QR code</button>
     <button id="scanQrBtn">📷 Scanner un QR code</button>
     <button id="wifiQrBtn">📶 Se connecter au Wi-Fi SHAMAN</button>
+    <button id="shareLinkBtn">🔗 Partager le lien</button>
   </div>
 
   <div id="wifiQrModal">
@@ -544,6 +545,33 @@
       showModal.classList.add('show');
     });
     closeShowBtn.addEventListener('click', ()=> showModal.classList.remove('show'));
+  })();
+
+  // ---- Bouton "Partager le lien" (menu de partage natif : WhatsApp, SMS, Mail, etc.) ----
+  (function(){
+    const shopUrl = location.origin + location.pathname;
+    const shareBtn = document.getElementById('shareLinkBtn');
+
+    shareBtn.addEventListener('click', async ()=>{
+      if(navigator.share){
+        try{
+          await navigator.share({
+            title: 'WI-FI 6 SHAMAN HOTSPOT',
+            text: 'Achetez votre code ticket Wi-Fi ici :',
+            url: shopUrl
+          });
+        } catch(err){
+          // l'utilisateur a annulé le partage : rien à faire
+        }
+      } else {
+        try{
+          await navigator.clipboard.writeText(shopUrl);
+          alert('Lien copié : ' + shopUrl + '\n\nVous pouvez maintenant le coller dans WhatsApp, SMS, ou toute autre application.');
+        } catch(err){
+          prompt('Copiez ce lien pour le partager :', shopUrl);
+        }
+      }
+    });
   })();
 
   // ---- Bouton "Se connecter au Wi-Fi SHAMAN" ----
