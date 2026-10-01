@@ -371,6 +371,22 @@ Les fenêtres (QR code, scanner, connexion Wi-Fi) utilisent maintenant le même 
 
 Si un QR code imprimé sur un ticket ne se scanne pas (par notre lecteur ou par n'importe quel autre scanneur), c'est presque toujours un problème d'impression (encre, papier, taille) et non un problème de l'application — le code numérique, lui, reste fiable puisqu'il vient directement de Mikhmon. L'onglet "Entrer le code" est donc le repli à utiliser sur ce type de ticket.
 
+## Correction importante : la connexion automatique utilise maintenant la bonne adresse
+
+Les onglets "Scanner mon ticket" et "Entrer le code" pointaient vers `shamanchooz.wifi`, une adresse qui ne correspond pas à ce que votre application utilise déjà ailleurs. Votre app a en réalité, depuis le début, la vraie adresse de connexion tout en haut du fichier :
+
+```js
+const HOTSPOT_LOGIN_URL = "http://10.10.10.1/login";
+```
+
+C'est cette même adresse (et le même formulaire caché `#hotspotLoginForm`, déjà utilisé après un achat) que les deux onglets utilisent maintenant — donc le même mécanisme, déjà en place dans votre app, au lieu d'une adresse devinée séparément.
+
+**Second correctif :** le QR imprimé sur vos tickets encode probablement une URL complète (`http://10.10.10.1/login?username=12345&password=12345`), pas seulement le chiffre. Le scanner extrait maintenant correctement le code depuis cette URL (ou le lit directement s'il s'agit d'un simple numéro).
+
+**Troisième amélioration :** le scanner essaie d'abord le lecteur de QR natif du téléphone (disponible sur la plupart des Android récents, via Chrome) — bien plus tolérant qu'un lecteur en JavaScript pur sur les codes imprimés petits, flous ou mal cadrés — et ne bascule sur jsQR que si ce lecteur natif n'est pas disponible (iPhone notamment).
+
+⚠️ **Si l'adresse `10.10.10.1` n'est pas la bonne IP de votre hotspot**, changez-la à cet unique endroit (`HOTSPOT_LOGIN_URL`, tout en haut du fichier) — ce changement s'appliquera alors automatiquement partout dans l'app (achat, scan, saisie du code).
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

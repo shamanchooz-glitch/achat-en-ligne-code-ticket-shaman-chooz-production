@@ -284,17 +284,6 @@
     <button class="qr-close-btn" id="closeWifiQr" style="margin-top:18px;">Fermer</button>
   </div>
 
-  <!-- Connexion automatique au portail captif MikroTik : POST standard vers le
-       formulaire du hotspot (username/password = code du ticket), en navigation
-       normale (pas en AJAX) pour fonctionner même depuis une page HTTPS externe.
-       Ne fonctionne que si le téléphone est déjà sur le réseau WI-FI 6 SHAMAN HOTSPOT. -->
-  <form id="hotspotLoginForm" method="post" action="http://shamanchooz.wifi/login" style="display:none;">
-    <input type="hidden" name="username" id="hotspotUsername">
-    <input type="hidden" name="password" id="hotspotPassword">
-    <input type="hidden" name="dst" id="hotspotDst">
-    <input type="hidden" name="popup" value="true">
-  </form>
-
   <div id="showQrModal">
     <div class="title" style="font-weight:700;font-size:15px;">WI-FI 6 SHAMAN HOTSPOT</div>
     <p>Faites scanner cet écran par un autre téléphone pour lui ouvrir la boutique.</p>
@@ -750,13 +739,31 @@
     });
 
     // ---- Envoi du code au portail captif MikroTik ----
-    function connectWithTicketCode(code){
-      code = (code || '').trim();
+    // Réutilise le mécanisme déjà en place dans l'app (HOTSPOT_LOGIN_URL,
+    // formulaire #hotspotLoginForm) utilisé après un achat — même adresse,
+    // mêmes champs, pour que ça marche de façon identique et cohérente.
+    function parseTicketPayload(raw){
+      const text = (raw || '').trim();
+      try{
+        const url = new URL(text);
+        const u = url.searchParams.get('username');
+        const p = url.searchParams.get('password');
+        if(u) return (p || u);
+      } catch(e){ /* ce n'est pas une URL, on continue */ }
+      const digits = text.match(/\d{3,8}/);
+      if(digits) return digits[0];
+      return text || null;
+    }
+
+    function connectWithTicketCode(raw){
+      const code = parseTicketPayload(raw);
       if(!code) return;
-      document.getElementById('hotspotUsername').value = code;
-      document.getElementById('hotspotPassword').value = code;
-      document.getElementById('hotspotDst').value = location.origin + location.pathname;
-      document.getElementById('hotspotLoginForm').submit();
+      const form = document.getElementById('hotspotLoginForm');
+      form.action = HOTSPOT_LOGIN_URL;
+      form.username.value = code;
+      form.password.value = code;
+      form.target = 'shamanHotspotConnect';
+      try{ window.open('', 'shamanHotspotConnect'); form.submit(); }catch(e){ form.target=''; form.submit(); }
     }
 
     // ---- Onglet "Entrer le code" ----
@@ -775,13 +782,54 @@
       if(e.key === 'Enter') codeSubmitBtn.click();
     });
 
-    // ---- Onglet "Scanner mon ticket" (caméra + jsQR) ----
+    // ---- Onglet "Scanner mon ticket" ----
+    // Essaie d'abord le détecteur de QR natif du téléphone (Shape Detection API,
+    // Android/Chrome) : plus fiable que jsQR sur les codes imprimés petits, flous
+    // ou mal cadrés. Bascule sur jsQR uniquement s'il n'est pas disponible (iPhone/Safari).
     const scanVideo = document.getElementById('ticketScanVideo');
     const scanCanvas = document.getElementById('ticketScanCanvas');
     const scanStatus = document.getElementById('ticketScanStatus');
     let ticketStream = null;
     let ticketRaf = null;
     let ticketFound = false;
+    let ticketVideoTrack = null;
+    let ticketBarcodeDetector = null;
+    let ticketUseNative = false;
+    let ticketDetectBusy = false;
+
+    async function initTicketDetector(){
+      ticketUseNative = false;
+      ticketBarcodeDetector = null;
+      if(!('BarcodeDetector' in window)) return;
+      try{
+        if('getSupportedFormats' in BarcodeDetector){
+          const formats = await BarcodeDetector.getSupportedFormats();
+          if(!formats.includes('qr_code')) return;
+        }
+        ticketBarcodeDetector = new BarcodeDetector({ formats: ['qr_code'] });
+        ticketUseNative = true;
+      } catch(e){ ticketUseNative = false; }
+    }
+
+    async function ensureTicketFocus(){
+      if(!ticketVideoTrack || !ticketVideoTrack.getCapabilities) return;
+      try{
+        const caps = ticketVideoTrack.getCapabilities();
+        if(caps.focusMode && caps.focusMode.includes('continuous')){
+          await ticketVideoTrack.applyConstraints({ advanced: [{ focusMode: 'continuous' }] });
+        }
+      } catch(e){ /* non supporté sur cet appareil */ }
+    }
+    scanVideo.addEventListener('click', async ()=>{
+      if(!ticketVideoTrack || !ticketVideoTrack.getCapabilities) return;
+      try{
+        const caps = ticketVideoTrack.getCapabilities();
+        if(caps.focusMode && caps.focusMode.includes('single-shot')){
+          await ticketVideoTrack.applyConstraints({ advanced: [{ focusMode: 'single-shot' }] });
+          setTimeout(ensureTicketFocus, 400);
+        }
+      } catch(e){ /* pas de mise au point manuelle sur cet appareil */ }
+    });
 
     function stopTicketScan(){
       ticketFound = true;
@@ -790,37 +838,58 @@
       scanStatus.textContent = '';
     }
 
-    function ticketTick(){
+    function handleTicketDecoded(rawValue){
+      ticketFound = true;
+      scanStatus.textContent = '✅ Code détecté — connexion...';
+      if(ticketStream){ ticketStream.getTracks().forEach(t => t.stop()); ticketStream = null; }
+      setTimeout(()=> connectWithTicketCode(rawValue), 300);
+    }
+
+    async function ticketTick(){
       if(ticketFound) return;
-      if(scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA){
-        scanCanvas.width = scanVideo.videoWidth;
-        scanCanvas.height = scanVideo.videoHeight;
-        const ctx = scanCanvas.getContext('2d');
-        ctx.drawImage(scanVideo, 0, 0, scanCanvas.width, scanCanvas.height);
-        const imageData = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
-        const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
-        if(code && code.data){
-          ticketFound = true;
-          scanStatus.textContent = '✅ Code détecté — connexion...';
-          if(ticketStream){ ticketStream.getTracks().forEach(t => t.stop()); ticketStream = null; }
-          setTimeout(()=> connectWithTicketCode(code.data), 300);
-          return;
+      try{
+        if(scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA && scanVideo.videoWidth > 0){
+          if(ticketUseNative && ticketBarcodeDetector){
+            if(!ticketDetectBusy){
+              ticketDetectBusy = true;
+              try{
+                const codes = await ticketBarcodeDetector.detect(scanVideo);
+                if(codes && codes.length){ handleTicketDecoded(codes[0].rawValue); ticketDetectBusy = false; return; }
+              } catch(e){
+                ticketUseNative = false; // bascule sur jsQR dès la prochaine image
+              }
+              ticketDetectBusy = false;
+            }
+          } else {
+            scanCanvas.width = scanVideo.videoWidth;
+            scanCanvas.height = scanVideo.videoHeight;
+            const ctx = scanCanvas.getContext('2d');
+            ctx.drawImage(scanVideo, 0, 0, scanCanvas.width, scanCanvas.height);
+            const imageData = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+            const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height, { inversionAttempts: 'attemptBoth' }) : null;
+            if(code && code.data){ handleTicketDecoded(code.data); return; }
+          }
         }
-      }
+      } catch(err){ /* une image ratée ne doit pas arrêter le scan */ }
       ticketRaf = requestAnimationFrame(ticketTick);
     }
 
     async function startTicketScan(){
       ticketFound = false;
       scanStatus.textContent = 'Ouverture de la caméra...';
-      if(!window.jsQR){
-        scanStatus.textContent = "⚠️ Le lecteur de QR code n'a pas pu se charger (vérifiez votre connexion), réessayez.";
-        return;
-      }
       try{
-        ticketStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        ticketStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1920 }, advanced: [{ focusMode: 'continuous' }] }
+        });
         scanVideo.srcObject = ticketStream;
         await scanVideo.play();
+        ticketVideoTrack = ticketStream.getVideoTracks()[0];
+        await ensureTicketFocus();
+        await initTicketDetector();
+        if(!ticketUseNative && !window.jsQR){
+          scanStatus.textContent = "⚠️ Le lecteur de QR code n'a pas pu se charger (vérifiez votre connexion), utilisez la saisie manuelle.";
+          return;
+        }
         scanStatus.textContent = '';
         ticketRaf = requestAnimationFrame(ticketTick);
       } catch(err){
