@@ -363,6 +363,14 @@ Le bouton "📶 Se connecter au Wi-Fi SHAMAN" ouvre maintenant une fenêtre à 3
 - **Ça ne peut fonctionner que si le téléphone est déjà connecté au réseau Wi-Fi SHAMAN** (l'adresse `shamanchooz.wifi` n'existe que sur ce réseau local). C'est pour ça que l'onglet 1 (rejoindre le Wi-Fi) reste disponible séparément : utilisez-le d'abord si ce n'est pas encore fait, puis revenez scanner ou taper le code.
 - Les noms des champs (`username`, `password`, `dst`) sont les noms standards imposés par RouterOS pour tous les portails MikroTik — ils ne devraient donc pas varier selon le modèle de votre template Mikhmon. Mais comme je n'ai pas pu lire le contenu exact de votre `login.html`, **testez bien ce nouvel onglet avec un vrai ticket avant de l'utiliser en clientèle**. Si la connexion échoue, envoyez-moi le contenu de `login.html` (juste la partie `<form>...</form>`) et j'ajusterai précisément.
 
+## Style des fenêtres plein écran harmonisé
+
+Les fenêtres (QR code, scanner, connexion Wi-Fi) utilisent maintenant le même bleu que le reste de l'application, avec des boutons blancs — au lieu du fond sombre et des boutons verts précédents.
+
+## À savoir : qualité d'impression du QR sur les tickets
+
+Si un QR code imprimé sur un ticket ne se scanne pas (par notre lecteur ou par n'importe quel autre scanneur), c'est presque toujours un problème d'impression (encre, papier, taille) et non un problème de l'application — le code numérique, lui, reste fiable puisqu'il vient directement de Mikhmon. L'onglet "Entrer le code" est donc le repli à utiliser sur ce type de ticket.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
