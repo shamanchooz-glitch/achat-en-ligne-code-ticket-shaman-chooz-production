@@ -76,6 +76,13 @@
   #showQrModal.show,#scanQrModal.show,#wifiQrModal.show{display:flex;}
   #showQrModal #qrcodeFull{background:#fff;padding:18px;border-radius:16px;margin:14px 0;}
   #showQrModal p, #scanQrModal p, #wifiQrModal p{font-size:13px;opacity:.85;max-width:320px;}
+  .wifi-tabs{display:flex;gap:6px;margin:14px 0;flex-wrap:wrap;justify-content:center;}
+  .wifi-tabs button{background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.3);color:#fff;border-radius:8px;padding:8px 10px;font-size:11.5px;font-weight:700;cursor:pointer;}
+  .wifi-tabs button.active{background:#2ED9A0;color:#04241a;border-color:#2ED9A0;}
+  .wifi-pane{width:100%;max-width:320px;}
+  #ticketCodeInput{width:100%;padding:12px 14px;border-radius:8px;border:none;font-size:16px;text-align:center;margin:10px 0;letter-spacing:1px;}
+  #ticketScanVideo{width:100%;max-width:300px;border-radius:16px;background:#000;}
+  #ticketScanStatus{font-size:13px;margin-top:10px;min-height:18px;}
   .qr-close-btn{margin-top:18px;background:#2ED9A0;color:#04241a;border:none;border-radius:8px;padding:10px 22px;font-weight:700;cursor:pointer;}
   #scanQrVideo{width:100%;max-width:340px;border-radius:16px;background:#000;}
   #scanQrStatus{font-size:13px;margin-top:10px;min-height:18px;}
@@ -246,10 +253,47 @@
   </div>
 
   <div id="wifiQrModal">
-    <div style="font-weight:700;font-size:15px;">📶 Rejoindre le Wi-Fi SHAMAN</div>
-    <p id="wifiModalText">Dans la liste des réseaux Wi-Fi qui vient de s'ouvrir, touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> — aucun mot de passe n'est demandé.</p>
-    <button class="qr-close-btn" id="closeWifiQr">Fermer</button>
+    <div style="font-weight:700;font-size:15px;">📶 Connexion au Wi-Fi SHAMAN</div>
+
+    <div class="wifi-tabs">
+      <button id="wifiTabJoin" class="active">1. Rejoindre le Wi-Fi</button>
+      <button id="wifiTabScan">2. Scanner mon ticket</button>
+      <button id="wifiTabCode">3. Entrer le code</button>
+    </div>
+
+    <div id="wifiPaneJoin" class="wifi-pane">
+      <p id="wifiModalText">Touchez le bouton ci-dessous pour ouvrir les réglages Wi-Fi de votre téléphone.</p>
+      <button class="qr-close-btn" id="wifiJoinAction">📶 Rejoindre le Wi-Fi maintenant</button>
+      <p style="opacity:.7;margin-top:10px;">À utiliser seulement si vous n'êtes pas encore connecté au Wi-Fi SHAMAN.</p>
+    </div>
+
+    <div id="wifiPaneScan" class="wifi-pane" style="display:none;">
+      <p>Pointez la caméra vers le QR code de votre ticket (déjà connecté au Wi-Fi SHAMAN).</p>
+      <video id="ticketScanVideo" playsinline muted></video>
+      <canvas id="ticketScanCanvas" style="display:none;"></canvas>
+      <div id="ticketScanStatus"></div>
+    </div>
+
+    <div id="wifiPaneCode" class="wifi-pane" style="display:none;">
+      <p>Entrez le code de votre ticket (déjà connecté au Wi-Fi SHAMAN).</p>
+      <input id="ticketCodeInput" type="text" placeholder="Ex : 5559" autocomplete="off" autocapitalize="characters">
+      <button class="qr-close-btn" id="ticketCodeSubmit">Connexion</button>
+      <div id="ticketCodeStatus" style="font-size:13px;margin-top:8px;min-height:18px;"></div>
+    </div>
+
+    <button class="qr-close-btn" id="closeWifiQr" style="margin-top:18px;">Fermer</button>
   </div>
+
+  <!-- Connexion automatique au portail captif MikroTik : POST standard vers le
+       formulaire du hotspot (username/password = code du ticket), en navigation
+       normale (pas en AJAX) pour fonctionner même depuis une page HTTPS externe.
+       Ne fonctionne que si le téléphone est déjà sur le réseau WI-FI 6 SHAMAN HOTSPOT. -->
+  <form id="hotspotLoginForm" method="post" action="http://shamanchooz.wifi/login" style="display:none;">
+    <input type="hidden" name="username" id="hotspotUsername">
+    <input type="hidden" name="password" id="hotspotPassword">
+    <input type="hidden" name="dst" id="hotspotDst">
+    <input type="hidden" name="popup" value="true">
+  </form>
 
   <div id="showQrModal">
     <div class="title" style="font-weight:700;font-size:15px;">WI-FI 6 SHAMAN HOTSPOT</div>
@@ -651,31 +695,138 @@
   })();
 
   // ---- Bouton "Se connecter au Wi-Fi SHAMAN" ----
-  // Sur Android : ouvre directement l'écran des réglages Wi-Fi du téléphone (raccourci officiel Chrome).
-  // Sur iPhone : Apple ne permet à aucun site d'ouvrir cet écran, on affiche donc le chemin à suivre.
-  // Dans les deux cas, un dernier tap sur le nom du réseau reste obligatoire (aucun mot de passe requis) :
-  // aucune technologie web ne peut faire ce tap final à la place du client (règle de sécurité Android/iOS).
+  // Modale à 3 onglets :
+  //  1. Rejoindre le Wi-Fi (si pas encore connecté au réseau) — raccourci réglages Android / instructions iPhone.
+  //  2. Scanner le QR du ticket — lit le code puis l'envoie automatiquement au portail MikroTik.
+  //  3. Entrer le code manuellement — même principe, au clavier.
+  // Les onglets 2 et 3 ne peuvent fonctionner que si le téléphone est déjà connecté
+  // au réseau WI-FI 6 SHAMAN HOTSPOT (ils envoient la connexion directement au routeur,
+  // à l'adresse shamanchooz.wifi, qui n'est joignable que depuis ce réseau local).
   (function(){
     const wifiBtn = document.getElementById('wifiQrBtn');
     const wifiModal = document.getElementById('wifiQrModal');
     const closeWifiBtn = document.getElementById('closeWifiQr');
     const wifiModalText = document.getElementById('wifiModalText');
+    const joinActionBtn = document.getElementById('wifiJoinAction');
+
+    const tabs = {
+      join: { btn: document.getElementById('wifiTabJoin'), pane: document.getElementById('wifiPaneJoin') },
+      scan: { btn: document.getElementById('wifiTabScan'), pane: document.getElementById('wifiPaneScan') },
+      code: { btn: document.getElementById('wifiTabCode'), pane: document.getElementById('wifiPaneCode') }
+    };
 
     function isAndroid(){
       return /android/i.test(navigator.userAgent);
     }
 
+    function showTab(name){
+      Object.keys(tabs).forEach(k=>{
+        tabs[k].btn.classList.toggle('active', k === name);
+        tabs[k].pane.style.display = (k === name) ? 'block' : 'none';
+      });
+      if(name !== 'scan') stopTicketScan();
+    }
+    tabs.join.btn.addEventListener('click', ()=> showTab('join'));
+    tabs.scan.btn.addEventListener('click', ()=> { showTab('scan'); startTicketScan(); });
+    tabs.code.btn.addEventListener('click', ()=> showTab('code'));
+
     wifiBtn.addEventListener('click', ()=>{
       if(isAndroid()){
-        wifiModalText.innerHTML = 'Dans la liste des réseaux Wi-Fi qui vient de s\'ouvrir, touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> — aucun mot de passe n\'est demandé.';
-        window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
-        setTimeout(()=> wifiModal.classList.add('show'), 400);
+        wifiModalText.innerHTML = 'Touchez le bouton ci-dessous : vos réglages Wi-Fi s\'ouvrent directement. Revenez ensuite ici pour scanner ou taper le code de votre ticket.';
       } else {
-        wifiModalText.innerHTML = 'Ouvrez <b>Réglages → Wi-Fi</b>, puis touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> dans la liste — aucun mot de passe n\'est demandé.';
-        wifiModal.classList.add('show');
+        wifiModalText.innerHTML = 'Ouvrez <b>Réglages → Wi-Fi</b>, puis touchez <b>« WI-FI 6 SHAMAN HOTSPOT »</b> dans la liste — aucun mot de passe n\'est demandé. Revenez ensuite ici pour scanner ou taper le code de votre ticket.';
+      }
+      showTab('join');
+      wifiModal.classList.add('show');
+    });
+    joinActionBtn.addEventListener('click', ()=>{
+      if(isAndroid()){
+        window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
       }
     });
-    closeWifiBtn.addEventListener('click', ()=> wifiModal.classList.remove('show'));
+    closeWifiBtn.addEventListener('click', ()=>{
+      wifiModal.classList.remove('show');
+      stopTicketScan();
+    });
+
+    // ---- Envoi du code au portail captif MikroTik ----
+    function connectWithTicketCode(code){
+      code = (code || '').trim();
+      if(!code) return;
+      document.getElementById('hotspotUsername').value = code;
+      document.getElementById('hotspotPassword').value = code;
+      document.getElementById('hotspotDst').value = location.origin + location.pathname;
+      document.getElementById('hotspotLoginForm').submit();
+    }
+
+    // ---- Onglet "Entrer le code" ----
+    const codeInput = document.getElementById('ticketCodeInput');
+    const codeSubmitBtn = document.getElementById('ticketCodeSubmit');
+    const codeStatus = document.getElementById('ticketCodeStatus');
+    codeSubmitBtn.addEventListener('click', ()=>{
+      if(!codeInput.value.trim()){
+        codeStatus.textContent = "Entrez d'abord le code inscrit sur votre ticket.";
+        return;
+      }
+      codeStatus.textContent = 'Connexion en cours...';
+      connectWithTicketCode(codeInput.value);
+    });
+    codeInput.addEventListener('keydown', (e)=>{
+      if(e.key === 'Enter') codeSubmitBtn.click();
+    });
+
+    // ---- Onglet "Scanner mon ticket" (caméra + jsQR) ----
+    const scanVideo = document.getElementById('ticketScanVideo');
+    const scanCanvas = document.getElementById('ticketScanCanvas');
+    const scanStatus = document.getElementById('ticketScanStatus');
+    let ticketStream = null;
+    let ticketRaf = null;
+    let ticketFound = false;
+
+    function stopTicketScan(){
+      ticketFound = true;
+      if(ticketRaf) cancelAnimationFrame(ticketRaf);
+      if(ticketStream){ ticketStream.getTracks().forEach(t => t.stop()); ticketStream = null; }
+      scanStatus.textContent = '';
+    }
+
+    function ticketTick(){
+      if(ticketFound) return;
+      if(scanVideo.readyState === scanVideo.HAVE_ENOUGH_DATA){
+        scanCanvas.width = scanVideo.videoWidth;
+        scanCanvas.height = scanVideo.videoHeight;
+        const ctx = scanCanvas.getContext('2d');
+        ctx.drawImage(scanVideo, 0, 0, scanCanvas.width, scanCanvas.height);
+        const imageData = ctx.getImageData(0, 0, scanCanvas.width, scanCanvas.height);
+        const code = window.jsQR ? jsQR(imageData.data, imageData.width, imageData.height) : null;
+        if(code && code.data){
+          ticketFound = true;
+          scanStatus.textContent = '✅ Code détecté — connexion...';
+          if(ticketStream){ ticketStream.getTracks().forEach(t => t.stop()); ticketStream = null; }
+          setTimeout(()=> connectWithTicketCode(code.data), 300);
+          return;
+        }
+      }
+      ticketRaf = requestAnimationFrame(ticketTick);
+    }
+
+    async function startTicketScan(){
+      ticketFound = false;
+      scanStatus.textContent = 'Ouverture de la caméra...';
+      if(!window.jsQR){
+        scanStatus.textContent = "⚠️ Le lecteur de QR code n'a pas pu se charger (vérifiez votre connexion), réessayez.";
+        return;
+      }
+      try{
+        ticketStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } });
+        scanVideo.srcObject = ticketStream;
+        await scanVideo.play();
+        scanStatus.textContent = '';
+        ticketRaf = requestAnimationFrame(ticketTick);
+      } catch(err){
+        scanStatus.textContent = "⚠️ Impossible d'accéder à la caméra. Vérifiez que vous avez autorisé l'accès à la caméra pour ce site.";
+      }
+    }
   })();
 
   // ---- Bouton "Scanner un QR code" (caméra utilisée comme scanneur universel) ----

@@ -350,6 +350,19 @@ Nouvel onglet dans le tableau de bord (menu principal). Vous pouvez y taper ou c
 
 ⚠️ Un QR code a une capacité limitée (environ 1000 à 1200 caractères avec ce niveau de correction) : un texte trop long affichera un message d'erreur clair au lieu de planter.
 
+## Nouveau : connexion automatique au portail avec le code du ticket
+
+Le bouton "📶 Se connecter au Wi-Fi SHAMAN" ouvre maintenant une fenêtre à 3 onglets :
+1. **Rejoindre le Wi-Fi** — le raccourci déjà en place (réglages Android / instructions iPhone), à utiliser seulement si le téléphone n'est pas encore connecté au réseau.
+2. **Scanner mon ticket** — pointe la caméra vers le QR code imprimé sur le ticket (comme sur votre photo) ; dès que le code est lu, il est envoyé automatiquement au portail et la connexion internet se fait sans rien taper.
+3. **Entrer le code** — un champ pour taper le code du ticket au clavier (comme sur votre portail captif), avec un bouton "Connexion".
+
+**Comment ça fonctionne techniquement :** l'app envoie directement le code au formulaire de connexion de votre routeur MikroTik, à l'adresse `shamanchooz.wifi` (celle vue dans votre capture d'écran), avec les noms de champs standards qu'utilise RouterOS pour identifier un voucher (`username`/`password` = le code, comme le fait votre portail actuel). Ça ne passe pas par une requête cachée : c'est une vraie navigation, donc ça fonctionne même si l'app est hébergée ailleurs (GitHub Pages).
+
+⚠️ **Deux points importants :**
+- **Ça ne peut fonctionner que si le téléphone est déjà connecté au réseau Wi-Fi SHAMAN** (l'adresse `shamanchooz.wifi` n'existe que sur ce réseau local). C'est pour ça que l'onglet 1 (rejoindre le Wi-Fi) reste disponible séparément : utilisez-le d'abord si ce n'est pas encore fait, puis revenez scanner ou taper le code.
+- Les noms des champs (`username`, `password`, `dst`) sont les noms standards imposés par RouterOS pour tous les portails MikroTik — ils ne devraient donc pas varier selon le modèle de votre template Mikhmon. Mais comme je n'ai pas pu lire le contenu exact de votre `login.html`, **testez bien ce nouvel onglet avec un vrai ticket avant de l'utiliser en clientèle**. Si la connexion échoue, envoyez-moi le contenu de `login.html` (juste la partie `<form>...</form>`) et j'ajusterai précisément.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
