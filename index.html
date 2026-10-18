@@ -162,6 +162,18 @@
   .stat{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px;}
   .stat .n{font-family:'IBM Plex Mono',monospace;font-size:22px;font-weight:600;color:var(--blue-deep);}
   .stat .l{font-size:11px;color:#5A6B8C;text-transform:uppercase;letter-spacing:.5px;}
+  .dash-lowstock{background:#FFF3DA;border:1px solid #F0D28C;color:#8A5A00;border-radius:10px;padding:12px 14px;font-size:12.5px;line-height:1.6;}
+  .dash-lowstock.ok{background:#E9F9F1;border-color:#B7E9CE;color:#0A6B4A;}
+  .dash-chart{display:flex;align-items:flex-end;gap:4px;height:110px;padding:6px 2px 0;border-bottom:1px solid var(--line);}
+  .dash-chart .bar-wrap{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;min-width:0;}
+  .dash-chart .bar{width:100%;background:var(--blue-deep);border-radius:3px 3px 0 0;min-height:2px;}
+  .dash-chart .bar-wrap .lbl{font-size:8.5px;color:#8092B0;margin-top:4px;white-space:nowrap;}
+  .dash-list-row{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .dash-list-row:last-child{border-bottom:none;}
+  .dash-list-row .sub{font-size:11px;color:#5A6B8C;}
+  .mk-btn{display:block;text-align:center;background:#fff;border:1px solid var(--line);color:var(--blue-deep);border-radius:10px;padding:16px 8px;font-weight:700;font-size:12.5px;text-decoration:none;line-height:1.3;}
+  .mk-btn:active{background:var(--paper);}
+  .dash-rank{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--blue-deep);color:#fff;font-size:10.5px;font-weight:700;margin-right:8px;}
   .card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;margin-bottom:20px;}
   .menu-pill{display:flex;align-items:center;justify-content:space-between;background:#fff;border:1px solid var(--line);color:var(--ink);text-decoration:none;font-size:14px;font-weight:600;padding:16px 18px;border-radius:12px;}
   .menu-pill::after{content:"›";color:#8092B0;font-size:18px;font-weight:400;}
@@ -381,6 +393,8 @@
         <div class="stats" id="statsBox"></div>
 
         <nav id="adminMenu" style="display:flex;flex-direction:column;gap:8px;padding:4px 2px;">
+          <a href="#admin-dashboard" class="menu-pill">📊 Tableau de bord</a>
+          <a href="#admin-reseau" class="menu-pill">📡 Connexions Wi-Fi en direct (Mikhmon)</a>
           <a href="#admin-lien" class="menu-pill">Lien de la boutique à partager</a>
           <a href="#admin-qrgen" class="menu-pill">🔲 Générateur de QR code universel</a>
           <a href="#admin-forfaits" class="menu-pill">Stock par forfait</a>
@@ -390,6 +404,55 @@
           <a href="#admin-historique" class="menu-pill">Historique des achats & factures</a>
           <a href="#admin-corbeille" class="menu-pill">🗑️ Corbeille</a>
         </nav>
+      </div>
+
+      <div id="page-reseau" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>📡 Connexions Wi-Fi en direct</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 12px;">Ouvre directement les pages de votre Mikhmon (qui lit le routeur) : qui est connecté, les appareils, les ventes. Il faut que votre téléphone soit connecté au Wi-Fi 6 SHAMAN.</p>
+
+          <div id="mkSetup">
+            <label style="font-size:12px;font-weight:600;display:block;margin-bottom:6px;">Collez ici l'adresse de votre Mikhmon</label>
+            <input type="text" id="mkAddrInput" placeholder="Copiée depuis la barre d'adresse, ex : http://192.168.88.1:8087/?hotspot=dashboard&session=..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;">
+            <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;">
+              <button class="btn-primary" id="mkSaveBtn">Enregistrer</button>
+              <button type="button" id="mkWifiBtn" style="background:#fff;border:1px solid var(--line);color:var(--blue-deep);border-radius:8px;padding:10px 16px;font-weight:700;font-size:13px;cursor:pointer;">📶 Rejoindre le Wi-Fi</button>
+            </div>
+            <div id="mkMsg" style="font-size:12px;margin-top:8px;min-height:16px;color:#8A1E27;"></div>
+            <p style="font-size:11.5px;color:#5A6B8C;margin:10px 0 0;">Astuce : ouvrez votre Mikhmon comme d'habitude, copiez l'adresse complète de la barre du navigateur et collez-la ici. L'adresse et le nom de session sont retenus automatiquement sur cet appareil (aucun mot de passe n'est enregistré).</p>
+          </div>
+
+          <div id="mkLinks" style="display:none;">
+            <div style="font-size:12px;color:#5A6B8C;margin-bottom:12px;">Mikhmon : <b id="mkCurrent"></b> <a href="#" id="mkChange" style="color:var(--blue-deep);margin-left:6px;">Modifier</a></div>
+            <div id="mkButtons" style="display:grid;grid-template-columns:1fr 1fr;gap:10px;"></div>
+            <p style="font-size:11.5px;color:#5A6B8C;margin:14px 0 0;">Mikhmon s'ouvre dans un nouvel onglet. Si on vous demande son mot de passe, c'est celui que vous utilisez d'habitude pour Mikhmon. Si une page reste vide, c'est que votre téléphone n'est pas sur le même réseau que Mikhmon.</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="page-dashboard" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+        <div class="card">
+          <h2>📊 Tableau de bord</h2>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 14px;">Vue d'ensemble de vos ventes, calculée en direct à partir de vos codes tickets.</p>
+
+          <div class="stats" id="dashKpis"></div>
+
+          <div id="dashLowStock" style="margin-bottom:20px;"></div>
+
+          <h3 style="font-size:13px;color:#0B3D91;margin:0 0 10px;">Ventes des 14 derniers jours</h3>
+          <div class="dash-chart" id="dashChart"></div>
+          <div style="font-size:11px;color:#5A6B8C;margin:8px 0 22px;">Hauteur des barres = chiffre d'affaires du jour.</div>
+
+          <h3 style="font-size:13px;color:#0B3D91;margin:0 0 6px;">Forfaits les plus vendus</h3>
+          <div id="dashTopForfaits" style="margin-bottom:22px;"></div>
+
+          <h3 style="font-size:13px;color:#0B3D91;margin:0 0 6px;">Activité récente</h3>
+          <div id="dashRecent" style="margin-bottom:22px;"></div>
+
+          <button class="btn-primary" id="exportCsvBtn">📥 Exporter tous les tickets (CSV)</button>
+        </div>
       </div>
 
       <div id="page-lien" class="admin-page" style="display:none;">
@@ -469,6 +532,7 @@
         <a href="#admin" class="page-back">← Retour</a>
         <div class="card">
           <h2>Stock de tickets</h2>
+          <input type="text" id="stockSearch" placeholder="🔎 Rechercher un code, un forfait, un client..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;margin-bottom:10px;">
           <table>
             <thead><tr><th>Code</th><th>Forfait</th><th>Statut</th><th>Ajouté</th><th></th></tr></thead>
             <tbody id="ticketsTable"></tbody>
@@ -481,6 +545,7 @@
         <div class="card">
           <h2>Historique des achats & factures</h2>
           <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Chaque ligne = un achat, du paiement jusqu'à la connexion. Imprimez une facture détaillée pour n'importe lequel.</p>
+          <input type="text" id="historySearch" placeholder="🔎 Rechercher un numéro, un forfait..." style="width:100%;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:13px;margin-bottom:10px;">
           <table>
             <thead><tr><th>Client</th><th>Forfait</th><th>Statut</th><th>Heures</th><th></th></tr></thead>
             <tbody id="historyTable"></tbody>
@@ -971,7 +1036,112 @@
     closeScanBtn.addEventListener('click', stopScan);
   })();
 
+  // ---- Connexions Wi-Fi en direct : raccourcis vers votre Mikhmon ----
+  // Une page web HTTPS (GitHub Pages) ne peut pas lire elle-même le routeur
+  // (les navigateurs bloquent les appels vers une adresse HTTP locale), mais elle
+  // peut ouvrir votre Mikhmon, qui lui lit déjà le routeur, en un seul tap.
+  (function(){
+    const KEY = 'shamanMikhmon';
+    const setup = document.getElementById('mkSetup');
+    if(!setup) return;
+    const linksBox = document.getElementById('mkLinks');
+    const input = document.getElementById('mkAddrInput');
+    const saveBtn = document.getElementById('mkSaveBtn');
+    const wifiBtn = document.getElementById('mkWifiBtn');
+    const msg = document.getElementById('mkMsg');
+    const current = document.getElementById('mkCurrent');
+    const changeLink = document.getElementById('mkChange');
+    const buttons = document.getElementById('mkButtons');
+
+    const ITEMS = [
+      ['📡 Connectés en ce moment', 'hotspot=active'],
+      ['👥 Tous les tickets / utilisateurs', 'hotspot=users&profile=all'],
+      ['📱 Appareils détectés', 'hotspot=hosts'],
+      ['💰 Rapport des ventes', 'report=selling'],
+      ['🏠 Tableau de bord Mikhmon', 'hotspot=dashboard'],
+      ['🎫 Profils (forfaits)', 'hotspot=user-profiles'],
+      ['📜 Journal', 'hotspot=log'],
+      ['🔗 Accueil Mikhmon', '']
+    ];
+
+    function load(){
+      try{ return JSON.parse(localStorage.getItem(KEY) || 'null'); }catch(e){ return null; }
+    }
+    function store(cfg){
+      try{ localStorage.setItem(KEY, JSON.stringify(cfg)); }catch(e){}
+    }
+    function parse(raw){
+      let text = (raw || '').trim();
+      if(!text) return null;
+      if(!/^https?:\/\//i.test(text)) text = 'http://' + text;
+      try{
+        const u = new URL(text);
+        if(u.protocol !== 'http:' && u.protocol !== 'https:') return null;
+        let p = u.pathname;
+        const last = p.split('/').pop();
+        if(!p.endsWith('/') && !/\.[a-z0-9]+$/i.test(last)) p += '/';
+        else p = p.replace(/[^/]*$/, '');
+        return { base: u.origin + p, session: u.searchParams.get('session') || '' };
+      }catch(e){ return null; }
+    }
+    function link(cfg, query){
+      const parts = [];
+      if(query) parts.push(query);
+      if(cfg.session) parts.push('session=' + encodeURIComponent(cfg.session));
+      return cfg.base + (parts.length ? '?' + parts.join('&') : '');
+    }
+    function render(){
+      const cfg = load();
+      if(!cfg || !cfg.base){
+        setup.style.display = 'block';
+        linksBox.style.display = 'none';
+        return;
+      }
+      setup.style.display = 'none';
+      linksBox.style.display = 'block';
+      current.textContent = cfg.base + (cfg.session ? ' (session : ' + cfg.session + ')' : '');
+      buttons.innerHTML = '';
+      ITEMS.forEach(([label, query])=>{
+        const a = document.createElement('a');
+        a.className = 'mk-btn';
+        a.href = link(cfg, query);
+        a.target = '_blank';
+        a.rel = 'noopener';
+        a.textContent = label;
+        buttons.appendChild(a);
+      });
+    }
+
+    saveBtn.addEventListener('click', ()=>{
+      const cfg = parse(input.value);
+      if(!cfg){
+        msg.textContent = "Adresse non reconnue. Copiez l'adresse complète depuis la barre de votre navigateur quand Mikhmon est ouvert.";
+        return;
+      }
+      msg.textContent = '';
+      store(cfg);
+      render();
+    });
+    changeLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      const cfg = load();
+      input.value = cfg ? link(cfg, '') : '';
+      setup.style.display = 'block';
+      linksBox.style.display = 'none';
+    });
+    wifiBtn.addEventListener('click', ()=>{
+      if(/android/i.test(navigator.userAgent)){
+        window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
+      } else {
+        alert('Ouvrez Réglages → Wi-Fi, puis touchez « WI-FI 6 SHAMAN HOTSPOT ».');
+      }
+    });
+    render();
+  })();
+
   const ADMIN_PAGES = {
+    '#admin-reseau': 'page-reseau',
+    '#admin-dashboard': 'page-dashboard',
     '#admin-lien': 'page-lien',
     '#admin-qrgen': 'page-qrgen',
     '#admin-forfaits': 'page-forfaits',
@@ -1448,23 +1618,10 @@
         rows.push({ id:d.id, code:t.code, forfaitId:t.forfaitId, forfait: forfait?forfait.label:t.forfaitId, statut:t.statut, created, vendAt, usedAt, usedAtAuto: !!t.usedAtAuto, phone:t.vendPhone||'' });
       });
 
-      window.__allTicketRows = rows; // gardé pour le détail par forfait (fenêtre au clic)
+      window.__allTicketRows = rows; // gardé pour le détail par forfait (fenêtre au clic) et la recherche
 
       rows.sort((a,b)=>b.created-a.created);
-      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
-      const tbody = document.getElementById('ticketsTable');
-      tbody.innerHTML = rows.map(r=>`
-        <tr>
-          <td>${r.code}</td>
-          <td>${r.forfait}</td>
-          <td><span class="badge ${r.statut}">${r.statut}</span></td>
-          <td>${fmt(r.created)}${r.vendAt ? `<br><span style="color:#8A5A00;">Vendu : ${fmt(r.vendAt)}</span>` : ''}${r.usedAt ? `<br><span style="color:#0A6B4A;">Utilisé${r.usedAtAuto ? ' (auto, validité expirée)' : ''} : ${fmt(r.usedAt)}</span>` : ''}</td>
-          <td>${r.statut==='vendu' ? `<button class="row-action" data-id="${r.id}">Marquer utilisé</button>` : ''}</td>
-        </tr>`).join('');
-
-      tbody.querySelectorAll('.row-action').forEach(btn=>{
-        btn.onclick = ()=> updateDoc(doc(db,"tickets",btn.dataset.id), { statut:"utilise", usedAt: serverTimestamp() });
-      });
+      renderTicketsTable(rows);
 
       document.getElementById('statsBox').innerHTML = `
         <div class="stat"><div class="n">${stock}</div><div class="l">En stock</div></div>
@@ -1481,7 +1638,174 @@
           tr.onclick = ()=> afficherDetailForfait(tr.dataset.forfaitId);
         });
       }
+
+      renderDashboard(rows, parForfait);
     });
+
+    // --- Rendu du tableau de stock (réutilisé par la recherche) ---
+    function renderTicketsTable(rows){
+      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : '—';
+      const tbody = document.getElementById('ticketsTable');
+      if(!tbody) return;
+      tbody.innerHTML = rows.map(r=>`
+        <tr>
+          <td>${r.code}</td>
+          <td>${r.forfait}</td>
+          <td><span class="badge ${r.statut}">${r.statut}</span></td>
+          <td>${fmt(r.created)}${r.vendAt ? `<br><span style="color:#8A5A00;">Vendu : ${fmt(r.vendAt)}</span>` : ''}${r.usedAt ? `<br><span style="color:#0A6B4A;">Utilisé${r.usedAtAuto ? ' (auto, validité expirée)' : ''} : ${fmt(r.usedAt)}</span>` : ''}</td>
+          <td>${r.statut==='vendu' ? `<button class="row-action" data-id="${r.id}">Marquer utilisé</button>` : ''}</td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun résultat.</td></tr>';
+      tbody.querySelectorAll('.row-action').forEach(btn=>{
+        btn.onclick = ()=> updateDoc(doc(db,"tickets",btn.dataset.id), { statut:"utilise", usedAt: serverTimestamp() });
+      });
+    }
+    const stockSearch = document.getElementById('stockSearch');
+    if(stockSearch){
+      stockSearch.addEventListener('input', ()=>{
+        const q = stockSearch.value.trim().toLowerCase();
+        const all = window.__allTicketRows || [];
+        const filtered = q ? all.filter(r => (r.code+' '+r.forfait+' '+(r.phone||'')).toLowerCase().includes(q)) : all;
+        renderTicketsTable(filtered);
+      });
+    }
+
+    // --- Rendu de l'historique des achats (réutilisé par la recherche) ---
+    function renderHistoryTable(rows){
+      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : null;
+      const statutLabel = { attente:'En attente', validee:'Validée', refusee:'Refusée' };
+      const badgeClass = { attente:'vendu', validee:'utilise', refusee:'stock' };
+      const tbody = document.getElementById('historyTable');
+      if(!tbody) return;
+      tbody.innerHTML = rows.map(r=>`
+        <tr>
+          <td>${r.phone||''}</td>
+          <td>${r.forfaitLabel||''}<br><span style="color:#5A6B8C;">${r.montant||0} FCFA</span></td>
+          <td><span class="badge ${badgeClass[r.statut]||'stock'}">${statutLabel[r.statut]||r.statut}</span></td>
+          <td>Achat : ${fmt(r.created)||'—'}${r.validatedAt ? `<br>Validé : ${fmt(r.validatedAt.toMillis ? r.validatedAt.toMillis() : null)}` : ''}</td>
+          <td><button class="row-action" data-id="${r.id}">Facture</button></td>
+        </tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun résultat.</td></tr>';
+      tbody.querySelectorAll('.row-action').forEach(btn=>{
+        btn.onclick = ()=> afficherFacture(btn.dataset.id);
+      });
+    }
+    const historySearch = document.getElementById('historySearch');
+    if(historySearch){
+      historySearch.addEventListener('input', ()=>{
+        const q = historySearch.value.trim().toLowerCase();
+        const all = window.__allOrderRows || [];
+        const filtered = q ? all.filter(r => ((r.phone||'')+' '+(r.forfaitLabel||'')).toLowerCase().includes(q)) : all;
+        renderHistoryTable(filtered);
+      });
+    }
+
+    // --- Tableau de bord : calculé entièrement à partir des tickets déjà
+    // chargés ci-dessus (même écouteur), donc sans lecture Firestore de plus.
+    function prix(forfaitId){
+      const f = FORFAITS.find(x=>x.id===forfaitId);
+      return f ? f.prix : 0;
+    }
+    function renderDashboard(rows, parForfait){
+      const kpisEl = document.getElementById('dashKpis');
+      const lowStockEl = document.getElementById('dashLowStock');
+      const chartEl = document.getElementById('dashChart');
+      const topEl = document.getElementById('dashTopForfaits');
+      const recentEl = document.getElementById('dashRecent');
+      if(!kpisEl) return; // page pas encore ouverte une fois : rien à faire
+
+      const now = new Date();
+      const dayStart = (d)=>{ const x=new Date(d); x.setHours(0,0,0,0); return x.getTime(); };
+      const today0 = dayStart(now);
+      const sold = rows.filter(r=> (r.statut==='vendu' || r.statut==='utilise') && r.vendAt);
+
+      function sumSince(ms){
+        return sold.filter(r=>r.vendAt >= ms).reduce((s,r)=> s + prix(r.forfaitId), 0);
+      }
+      function countSince(ms){
+        return sold.filter(r=>r.vendAt >= ms).length;
+      }
+      const caJour = sumSince(today0);
+      const ca7j = sumSince(today0 - 6*86400000);
+      const ca30j = sumSince(today0 - 29*86400000);
+      const caTotal = sold.reduce((s,r)=> s + prix(r.forfaitId), 0);
+      const venteJour = countSince(today0);
+      const stockTotal = Object.values(parForfait).reduce((s,c)=> s + (c.stock||0), 0);
+
+      kpisEl.innerHTML = `
+        <div class="stat"><div class="n">${caJour.toLocaleString('fr-FR')}</div><div class="l">FCFA aujourd'hui</div></div>
+        <div class="stat"><div class="n">${venteJour}</div><div class="l">Ventes aujourd'hui</div></div>
+        <div class="stat"><div class="n">${ca7j.toLocaleString('fr-FR')}</div><div class="l">FCFA / 7 jours</div></div>
+        <div class="stat"><div class="n">${ca30j.toLocaleString('fr-FR')}</div><div class="l">FCFA / 30 jours</div></div>
+        <div class="stat"><div class="n">${caTotal.toLocaleString('fr-FR')}</div><div class="l">FCFA au total</div></div>
+        <div class="stat"><div class="n">${stockTotal}</div><div class="l">Codes en stock</div></div>`;
+
+      // --- Alerte stock bas (seuil : 3 codes par forfait) ---
+      const SEUIL = 3;
+      const bas = FORFAITS.filter(f => (parForfait[f.id]?.stock || 0) <= SEUIL);
+      if(bas.length){
+        lowStockEl.className = 'dash-lowstock';
+        lowStockEl.innerHTML = '⚠️ <b>Stock bas</b> — ' + bas.map(f=> `${f.label} (${parForfait[f.id]?.stock||0})`).join(' · ');
+      } else {
+        lowStockEl.className = 'dash-lowstock ok';
+        lowStockEl.textContent = '✅ Stock correct sur tous les forfaits (plus de ' + SEUIL + ' codes chacun).';
+      }
+
+      // --- Graphique : chiffre d'affaires des 14 derniers jours ---
+      const jours = [];
+      for(let i=13; i>=0; i--) jours.push(today0 - i*86400000);
+      const parJour = jours.map(j0 => sold.filter(r => r.vendAt >= j0 && r.vendAt < j0+86400000).reduce((s,r)=> s + prix(r.forfaitId), 0));
+      const maxJour = Math.max(1, ...parJour);
+      chartEl.innerHTML = jours.map((j0,i)=>{
+        const h = Math.round((parJour[i] / maxJour) * 100);
+        const lbl = new Date(j0).toLocaleDateString('fr-FR', {day:'2-digit', month:'2-digit'});
+        return `<div class="bar-wrap" title="${parJour[i].toLocaleString('fr-FR')} FCFA"><div class="bar" style="height:${h}%;"></div><div class="lbl">${lbl}</div></div>`;
+      }).join('');
+
+      // --- Forfaits les plus vendus (par chiffre d'affaires) ---
+      const classement = FORFAITS.map(f=>{
+        const c = parForfait[f.id] || {vendu:0, utilise:0};
+        const qte = (c.vendu||0) + (c.utilise||0);
+        return { label:f.label, qte, ca: qte * f.prix };
+      }).filter(x=>x.qte>0).sort((a,b)=> b.ca - a.ca).slice(0,6);
+      topEl.innerHTML = classement.length ? classement.map((c,i)=> `
+        <div class="dash-list-row">
+          <span><span class="dash-rank">${i+1}</span>${c.label}<div class="sub">${c.qte} vendu${c.qte>1?'s':''}</div></span>
+          <b>${c.ca.toLocaleString('fr-FR')} FCFA</b>
+        </div>`).join('') : '<div class="empty">Aucune vente pour le moment.</div>';
+
+      // --- Activité récente (10 dernières ventes) ---
+      const recents = sold.slice().sort((a,b)=> b.vendAt - a.vendAt).slice(0,10);
+      recentEl.innerHTML = recents.length ? recents.map(r=>{
+        const f = FORFAITS.find(x=>x.id===r.forfaitId);
+        return `<div class="dash-list-row">
+          <span>${r.phone || 'Client'}<div class="sub">${f?f.label:r.forfaitId} · ${new Date(r.vendAt).toLocaleString('fr-FR',{dateStyle:'short',timeStyle:'short'})}</div></span>
+          <b>${prix(r.forfaitId).toLocaleString('fr-FR')} FCFA</b>
+        </div>`;
+      }).join('') : '<div class="empty">Aucune activité récente.</div>';
+    }
+
+    // --- Export CSV de tous les tickets (comme l'export de vouchers de Mikhmon) ---
+    const exportCsvBtn = document.getElementById('exportCsvBtn');
+    if(exportCsvBtn){
+      exportCsvBtn.addEventListener('click', ()=>{
+        const rows = window.__allTicketRows || [];
+        if(!rows.length){ alert('Aucun ticket à exporter.'); return; }
+        const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR') : '';
+        const header = ['Code','Forfait','Statut','Prix (FCFA)','Ajouté le','Vendu le','Client','Utilisé le'];
+        const lines = rows.map(r=>{
+          const f = FORFAITS.find(x=>x.id===r.forfaitId);
+          return [r.code, f?f.label:r.forfaitId, r.statut, prix(r.forfaitId), fmt(r.created), fmt(r.vendAt), r.phone||'', fmt(r.usedAt)]
+            .map(v => `"${String(v).replace(/"/g,'""')}"`).join(',');
+        });
+        const csv = '\uFEFF' + [header.join(','), ...lines].join('\r\n');
+        const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'tickets-shaman-' + new Date().toISOString().slice(0,10) + '.csv';
+        document.body.appendChild(a); a.click(); document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    }
 
     window.afficherDetailForfait = function(forfaitId){
       const forfaitDef = FORFAITS.find(f=>f.id===forfaitId);
@@ -1564,23 +1888,8 @@
         rows.push({ id:d.id, ...o, created });
       });
       rows.sort((a,b)=>b.created-a.created);
-      const fmt = (ms)=> ms ? new Date(ms).toLocaleString('fr-FR', {dateStyle:'short', timeStyle:'short'}) : null;
-      const statutLabel = { attente:'En attente', validee:'Validée', refusee:'Refusée' };
-      const badgeClass = { attente:'vendu', validee:'utilise', refusee:'stock' };
-      const tbody = document.getElementById('historyTable');
-      if(tbody){
-        tbody.innerHTML = rows.map(r=>`
-          <tr>
-            <td>${r.phone||''}</td>
-            <td>${r.forfaitLabel||''}<br><span style="color:#5A6B8C;">${r.montant||0} FCFA</span></td>
-            <td><span class="badge ${badgeClass[r.statut]||'stock'}">${statutLabel[r.statut]||r.statut}</span></td>
-            <td>Achat : ${fmt(r.created)||'—'}${r.validatedAt ? `<br>Validé : ${fmt(r.validatedAt.toMillis ? r.validatedAt.toMillis() : null)}` : ''}</td>
-            <td><button class="row-action" data-id="${r.id}">Facture</button></td>
-          </tr>`).join('');
-        tbody.querySelectorAll('.row-action').forEach(btn=>{
-          btn.onclick = ()=> afficherFacture(btn.dataset.id);
-        });
-      }
+      window.__allOrderRows = rows; // gardé pour la recherche
+      renderHistoryTable(rows);
     });
 
     window.afficherFacture = function(orderId){

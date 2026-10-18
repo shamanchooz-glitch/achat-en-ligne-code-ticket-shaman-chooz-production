@@ -387,6 +387,33 @@ C'est cette même adresse (et le même formulaire caché `#hotspotLoginForm`, d�
 
 ⚠️ **Si l'adresse `10.10.10.1` n'est pas la bonne IP de votre hotspot**, changez-la à cet unique endroit (`HOTSPOT_LOGIN_URL`, tout en haut du fichier) — ce changement s'appliquera alors automatiquement partout dans l'app (achat, scan, saisie du code).
 
+## Nouveau : "📊 Tableau de bord" dans l'espace admin
+
+Premier lien du menu admin désormais. Tout est calculé en direct à partir de vos codes tickets (aucune lecture Firestore supplémentaire, donc pas de coût en plus) :
+- **Chiffre d'affaires** : aujourd'hui, 7 jours, 30 jours, total, et nombre de ventes du jour.
+- **Alerte stock bas** : avertissement dès qu'un forfait tombe à 3 codes ou moins (modifiable : variable `SEUIL` dans `index.html`).
+- **Graphique des 14 derniers jours** : barres montrant le chiffre d'affaires jour par jour.
+- **Forfaits les plus vendus** : classement par chiffre d'affaires.
+- **Activité récente** : les 10 dernières ventes (client, forfait, montant, heure).
+- **Export CSV** : télécharge tous les tickets (code, forfait, statut, dates, client) dans un fichier à ouvrir dans Excel — pratique pour une sauvegarde ou une compta, comme l'export de vouchers de Mikhmon.
+
+Une recherche a aussi été ajoutée en haut du **Stock de tickets** et de l'**Historique des achats** (par code, forfait ou numéro de client).
+
+## À savoir : ce qui reste impossible à ramener dans l'app depuis le routeur
+
+Comme expliqué précédemment, l'application (HTTPS, sur GitHub Pages) ne peut pas lire en direct ce qui se passe sur le routeur local (HTTP) : qui est connecté en ce moment, la bande passante, etc. — c'est bloqué par tous les navigateurs, pas par un manque de code. Le tableau de bord ci-dessus couvre donc tout ce qui concerne vos ventes et vos codes (ce qui recoupe une bonne partie de ce que fait Mikhmon), mais pas l'état réseau en direct du routeur. Pour ça, il faudra l'outil séparé, installé directement sur le routeur, évoqué précédemment.
+
+## Nouveau : "📡 Connexions Wi-Fi en direct (Mikhmon)" dans l'espace admin
+
+Aucune modification du routeur n'est nécessaire. Cette page ouvre en un tap les pages de **votre Mikhmon** (qui, lui, lit déjà le routeur) : connectés en ce moment, tous les tickets/utilisateurs, appareils détectés, rapport des ventes, tableau de bord, profils, journal.
+
+**Première utilisation (une seule fois) :** ouvrez votre Mikhmon comme d'habitude, copiez l'adresse complète de la barre du navigateur, collez-la dans le champ et touchez "Enregistrer". L'adresse et le nom de session sont retenus sur cet appareil (le mot de passe n'est jamais enregistré). Le bouton "Modifier" permet de la changer.
+
+**À savoir :**
+- Le téléphone doit être connecté au Wi-Fi 6 SHAMAN (même réseau que Mikhmon), sinon la page reste vide. Un bouton "📶 Rejoindre le Wi-Fi" est fourni.
+- Mikhmon s'ouvre dans un nouvel onglet : l'application ne peut pas afficher elle-même les connexions en direct, car les navigateurs interdisent à une page HTTPS (GitHub Pages) de lire une adresse HTTP locale comme celle du routeur ou de Mikhmon. Ouvrir Mikhmon dans un onglet n'est pas concerné par cette interdiction.
+- Les adresses des pages suivent la structure de Mikhmon v3. Selon la version, "Rapport des ventes" ou "Profils" peuvent différer : en cas de page vide, ouvrez la page à la main dans Mikhmon et dites-moi l'adresse affichée.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
