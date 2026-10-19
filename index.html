@@ -356,6 +356,11 @@
         <a class="wa-main" id="waLink" href="#">💬 Garder mon code dans WhatsApp</a>
         <div class="hint" id="waHint">Un seul appui ouvre WhatsApp avec votre code déjà écrit : touchez simplement « Envoyer ». Aucune donnée mobile n'est nécessaire, le Wi-Fi suffit.</div>
         <a class="wa-web" id="waWebLink" href="#" target="_blank" rel="noopener">WhatsApp ne s'ouvre pas ? Touchez ici</a>
+        <div id="waHelp" class="hint" style="display:none;background:rgba(255,255,255,.14);border-radius:10px;padding:12px;text-align:left;">
+          <b>WhatsApp affiche « Pas de connexion Internet » ?</b><br>
+          C'est le téléphone qui n'a pas encore reconnu ce Wi-Fi comme connecté, même si internet fonctionne. Touchez « OK », éteignez puis rallumez le Wi-Fi (votre ticket reste actif), attendez 5 secondes, puis retouchez le bouton ② ci-dessus.
+          <button class="primary" id="waHelpWifi" style="background:#fff;color:var(--blue-deep);margin-top:10px;font-size:13px;">📶 Ouvrir les réglages Wi-Fi</button>
+        </div>
       </div>
 
       <form id="hotspotLoginForm" method="post" style="display:none;">
@@ -1445,7 +1450,21 @@
     waWebLink.style.display = 'none';
   }
 
+  const waHelp = document.getElementById('waHelp');
+  let waClicked = false;
+  document.addEventListener('visibilitychange', ()=>{
+    if(!document.hidden && waClicked) waHelp.style.display = 'block';
+  });
+  document.getElementById('waHelpWifi').addEventListener('click', ()=>{
+    if(/android/i.test(navigator.userAgent)){
+      window.location.href = 'intent:#Intent;action=android.settings.WIFI_SETTINGS;end';
+    } else {
+      alert('Ouvrez Réglages → Wi-Fi, éteignez puis rallumez le Wi-Fi.');
+    }
+  });
+
   waLink.addEventListener('click', ()=>{
+    waClicked = true;
     if(window.__currentOrderRef){
       const { updateDoc, serverTimestamp } = window.__fb;
       updateDoc(window.__currentOrderRef, { waSentAt: serverTimestamp() }).catch(()=>{});

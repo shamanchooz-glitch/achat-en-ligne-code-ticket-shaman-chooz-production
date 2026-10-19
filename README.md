@@ -426,6 +426,10 @@ Quand le paiement est validé, la boîte du code affiche maintenant **deux étap
 
 **Côté admin :** dans **Historique des achats**, chaque achat validé a un bouton **💬 Code** qui ouvre WhatsApp vers le client avec son code (utile s'il l'a perdu). Les numéros sont normalisés automatiquement (07 48..., +225 07 48..., 0748... donnent tous le bon format).
 
+### Si WhatsApp affiche « Pas de connexion Internet » alors que le Wi-Fi marche
+
+Ce message vient de WhatsApp et d'Android, pas de l'application ni du ticket. Quand le client se connecte par une page web (et non par la fenêtre « Se connecter au réseau Wi-Fi » d'Android), Android peut garder ce Wi-Fi marqué « sans internet » pendant un moment, et WhatsApp refuse alors de s'en servir, même si les sites s'ouvrent. L'application affiche maintenant toute seule, quand le client revient de WhatsApp, un encadré d'aide avec un bouton « 📶 Ouvrir les réglages Wi-Fi » : éteindre puis rallumer le Wi-Fi force Android à refaire son test, et le ticket reste actif.
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :
