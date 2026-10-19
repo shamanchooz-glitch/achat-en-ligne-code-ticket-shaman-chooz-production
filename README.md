@@ -414,6 +414,18 @@ Aucune modification du routeur n'est nécessaire. Cette page ouvre en un tap les
 - Mikhmon s'ouvre dans un nouvel onglet : l'application ne peut pas afficher elle-même les connexions en direct, car les navigateurs interdisent à une page HTTPS (GitHub Pages) de lire une adresse HTTP locale comme celle du routeur ou de Mikhmon. Ouvrir Mikhmon dans un onglet n'est pas concerné par cette interdiction.
 - Les adresses des pages suivent la structure de Mikhmon v3. Selon la version, "Rapport des ventes" ou "Profils" peuvent différer : en cas de page vide, ouvrez la page à la main dans Mikhmon et dites-moi l'adresse affichée.
 
+## Nouveau : le code ticket gardé dans WhatsApp (après un achat)
+
+Quand le paiement est validé, la boîte du code affiche maintenant **deux étapes** :
+1. **🔓 Me connecter au Wi-Fi** : ouvre la connexion dans un nouvel onglet (« Envoyer quand même » si le téléphone le demande). L'application surveille ensuite la connexion et affiche **✅ Vous êtes connecté à internet** dès qu'elle est établie (le téléphone vibre).
+2. **💬 Garder mon code dans WhatsApp** : un seul appui ouvre WhatsApp avec le message déjà écrit (code, forfait, mode d'emploi, numéro d'assistance). Le client touche seulement « Envoyer » et le code reste dans ses messages (conversation avec son propre numéro).
+
+**Pourquoi ça marche sans données mobiles :** le bouton utilise le lien direct de l'application WhatsApp (`whatsapp://`) et non la page web `wa.me`. Il ouvre WhatsApp immédiatement sans télécharger de page, et le message part dès que le Wi-Fi est connecté. Si WhatsApp ne s'ouvre pas au bout de 2 secondes, un lien de secours « WhatsApp ne s'ouvre pas ? Touchez ici » apparaît.
+
+**Envoi 100 % automatique :** impossible depuis une page web. Android et WhatsApp exigent un appui du client pour envoyer un message ; seule l'API professionnelle WhatsApp Business (payante, avec un serveur) peut le faire sans appui. Le fonctionnement en un seul appui est donc le plus direct possible.
+
+**Côté admin :** dans **Historique des achats**, chaque achat validé a un bouton **💬 Code** qui ouvre WhatsApp vers le client avec son code (utile s'il l'a perdu). Les numéros sont normalisés automatiquement (07 48..., +225 07 48..., 0748... donnent tous le bon format).
+
 ## Prochaine étape possible
 
 Quand vous serez prêt, dites-le-moi et on branche la suite :

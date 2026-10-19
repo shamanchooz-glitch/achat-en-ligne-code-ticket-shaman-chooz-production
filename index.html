@@ -142,6 +142,12 @@
   .code-reveal .lbl{font-size:11px;letter-spacing:1.5px;text-transform:uppercase;opacity:.75;}
   .code-reveal .code{font-family:'IBM Plex Mono',monospace;font-size:30px;font-weight:600;letter-spacing:3px;margin:8px 0;}
   .wa-btn{display:inline-flex;align-items:center;gap:8px;margin-top:10px;background:var(--signal);color:#04241a;text-decoration:none;padding:10px 16px;border-radius:20px;font-size:13px;font-weight:700;}
+  .code-reveal .step{margin-top:18px;font-size:12px;font-weight:700;letter-spacing:.5px;text-transform:uppercase;opacity:.85;}
+  .code-reveal .hint{font-size:12px;opacity:.9;margin-top:10px;line-height:1.5;}
+  a.wa-main{display:block;margin-top:10px;padding:14px;border-radius:10px;background:#fff;color:var(--blue-deep);text-decoration:none;font-weight:700;font-size:16px;}
+  a.wa-main.pulse{box-shadow:0 0 0 4px var(--signal);}
+  a.wa-web{display:none;margin-top:10px;color:#fff;font-size:12px;text-decoration:underline;}
+  #netState{margin-top:10px;font-size:13px;font-weight:700;min-height:18px;}
   #clientView footer{text-align:center;font-size:11px;color:#8092B0;padding:20px;}
 
   /* ===== Vue admin ===== */
@@ -200,6 +206,7 @@
   .badge.vendu{background:#FFF3DA;color:#8A5A00;}
   .badge.utilise{background:#E6FBF3;color:#0A6B4A;}
   .row-action{border:none;background:none;color:var(--blue-mid);font-size:11px;cursor:pointer;text-decoration:underline;}
+  .wa-row{border:none;background:var(--signal);color:#04241a;font-size:11px;font-weight:700;cursor:pointer;border-radius:6px;padding:4px 7px;margin-left:6px;}
   .btn-trash{background:rgba(255,255,255,.15);color:#fff;border:1px solid rgba(255,255,255,.3);border-radius:20px;padding:8px 14px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:6px;}
   #trashModal{display:none;position:fixed;inset:0;background:rgba(6,15,32,.55);z-index:998;align-items:flex-start;justify-content:center;padding:40px 16px;}
   #trashModal.show{display:flex;}
@@ -340,9 +347,15 @@
         <div class="lbl">Votre code ticket</div>
         <div class="code" id="codeValue">------</div>
 
-        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;">🔓 Me connecter + envoyer mon code sur WhatsApp</button>
-        <div id="connectStatus" style="font-size:12px;opacity:.85;margin-top:10px;">Un seul appui suffit. Si une fenêtre "informations non sécurisées" apparaît, appuyez sur "Envoyer quand même" — c'est normal et sans danger. Si vos données mobiles sont coupées, l'envoi WhatsApp peut échouer tant qu'elles ne sont pas réactivées — votre code reste affiché ici de toute façon.</div>
-        <a class="wa-btn" id="waLink" href="#" target="_blank" style="display:none;">📲 Recevoir aussi sur WhatsApp</a>
+        <div class="step">① Connectez-vous au Wi-Fi</div>
+        <button class="primary" id="retryConnectBtn" style="background:var(--signal);color:#04241a;font-size:16px;margin-top:8px;">🔓 Me connecter au Wi-Fi</button>
+        <div class="hint" id="connectStatus">Un seul appui suffit. Si une fenêtre « informations non sécurisées » apparaît, appuyez sur « Envoyer quand même » : c'est normal et sans danger.</div>
+        <div id="netState"></div>
+
+        <div class="step">② Gardez votre code dans WhatsApp</div>
+        <a class="wa-main" id="waLink" href="#">💬 Garder mon code dans WhatsApp</a>
+        <div class="hint" id="waHint">Un seul appui ouvre WhatsApp avec votre code déjà écrit : touchez simplement « Envoyer ». Aucune donnée mobile n'est nécessaire, le Wi-Fi suffit.</div>
+        <a class="wa-web" id="waWebLink" href="#" target="_blank" rel="noopener">WhatsApp ne s'ouvre pas ? Touchez ici</a>
       </div>
 
       <form id="hotspotLoginForm" method="post" style="display:none;">
@@ -1255,6 +1268,18 @@
   const codeValue = document.getElementById('codeValue');
   const waLink = document.getElementById('waLink');
 
+  // --- WhatsApp : numéro au format international + message du ticket ---
+  // Côte d'Ivoire : indicatif 225, le 0 initial des numéros à 10 chiffres est conservé.
+  function waNumber(raw){
+    let d = String(raw || '').replace(/\D/g, '');
+    if(d.startsWith('00')) d = d.slice(2);
+    if(d.startsWith('225') && d.length >= 11) return d;
+    return '225' + d;
+  }
+  function waMessage(forfaitLabel, code){
+    return `Votre code ticket WI-FI 6 SHAMAN (${forfaitLabel}) : ${code}\n\nGardez ce message : tapez ce code pour vous connecter au Wi-Fi « WI-FI 6 SHAMAN HOTSPOT ».\nAssistance : 07 48 93 56 86`;
+  }
+
   let unsubscribeOrder = null;
 
   submitBtn.addEventListener('click', async ()=>{
@@ -1295,8 +1320,8 @@
           waitMsg.classList.remove('show');
           codeValue.textContent = data.ticketCode;
           codeBox.style.display = "block";
-          const msg = encodeURIComponent(`Votre code ticket WI-FI 6 SHAMAN (${forfait.label}) : ${data.ticketCode}`);
-          waLink.href = `https://wa.me/225${phone.replace(/\D/g,'')}?text=${msg}`;
+          setupWhatsApp(phone, forfait.label, data.ticketCode);
+          hasInternet().then(online => { if(online) showNetState(true); });
           window.__currentOrderRef = orderRef;
           if(unsubscribeOrder) unsubscribeOrder();
         }
@@ -1330,10 +1355,65 @@
   // par le téléphone pour des raisons de sécurité, silencieusement.
   const connectStatus = document.getElementById('connectStatus');
   const retryBtn = document.getElementById('retryConnectBtn');
+  const netState = document.getElementById('netState');
+  const waWebLink = document.getElementById('waWebLink');
+  const waHint = document.getElementById('waHint');
+  let netTimer = null;
+  let netBusy = false;
 
-  // Un seul bouton fait les deux, l'un après l'autre : la connexion s'ouvre
-  // dans un nouvel onglet (pour garder cette page active), puis WhatsApp
-  // s'ouvre juste après, dans le même geste.
+  // Test de connexion internet : on essaie de joindre un site qui n'est PAS dans le
+  // Walled Garden. Il n'est donc joignable qu'une fois le ticket connecté (ou avec
+  // des données mobiles). L'abandon après 4 s évite d'attendre un blocage du hotspot.
+  async function hasInternet(){
+    const ctrl = new AbortController();
+    const t = setTimeout(()=> ctrl.abort(), 4000);
+    try{
+      await fetch('https://captive.apple.com/hotspot-detect.html', { mode:'no-cors', cache:'no-store', signal: ctrl.signal });
+      return true;
+    }catch(e){
+      return false;
+    }finally{
+      clearTimeout(t);
+    }
+  }
+
+  function showNetState(online){
+    netState.textContent = online ? '✅ Vous êtes connecté à internet' : '⏳ Connexion en cours...';
+    waLink.classList.toggle('pulse', online);
+    if(online){
+      waHint.textContent = "Vous êtes connecté : touchez le bouton, puis « Envoyer » dans WhatsApp. Votre code restera dans vos messages.";
+    }
+  }
+
+  function stopNetWatch(){
+    if(netTimer){ clearInterval(netTimer); netTimer = null; }
+  }
+
+  function startNetWatch(){
+    stopNetWatch();
+    let tries = 0;
+    showNetState(false);
+    const check = async ()=>{
+      if(netBusy) return;
+      netBusy = true;
+      const online = await hasInternet();
+      netBusy = false;
+      tries++;
+      if(online){
+        showNetState(true);
+        stopNetWatch();
+        if(navigator.vibrate) navigator.vibrate(200);
+      } else if(tries >= 24){
+        stopNetWatch();
+        netState.textContent = '⚠️ Pas encore de connexion. Appuyez de nouveau sur « Me connecter au Wi-Fi ».';
+      }
+    };
+    check();
+    netTimer = setInterval(check, 2500);
+  }
+
+  // Un seul appui : la connexion s'ouvre dans un nouvel onglet (cette page reste active
+  // pour suivre la connexion), puis l'étape ② WhatsApp est proposée.
   retryBtn.addEventListener('click', ()=>{
     const code = codeValue.textContent;
 
@@ -1342,7 +1422,6 @@
       updateDoc(window.__currentOrderRef, { connectAt: serverTimestamp() }).catch(()=>{});
     }
 
-    // 1) Connexion au Wi-Fi, dans un nouvel onglet
     const form = document.getElementById('hotspotLoginForm');
     form.action = HOTSPOT_LOGIN_URL;
     form.target = "shamanHotspotConnect";
@@ -1350,22 +1429,35 @@
     form.password.value = code;
     try{ window.open('', 'shamanHotspotConnect'); form.submit(); }catch(e){}
 
-    // 2) Envoi du code sur WhatsApp, juste après
-    const waUrl = document.getElementById('waLink').href;
-    if(waUrl && waUrl !== '#' && waUrl.startsWith('http')){
-      window.open(waUrl, '_blank');
-      if(window.__currentOrderRef){
-        const { updateDoc, serverTimestamp } = window.__fb;
-        updateDoc(window.__currentOrderRef, { waSentAt: serverTimestamp() }).catch(()=>{});
-      }
-    }
+    connectStatus.textContent = "Un onglet s'ouvre : appuyez sur « Envoyer quand même » s'il le demande, puis revenez sur cette page pour l'étape ②.";
+    startNetWatch();
   });
 
-  document.getElementById('waLink').addEventListener('click', ()=>{
+  // --- Étape ② : WhatsApp ---
+  // On utilise le lien direct de l'application (whatsapp://) et non la page web wa.me :
+  // il ouvre WhatsApp tout de suite, sans télécharger de page, donc sans avoir besoin
+  // d'internet à cet instant. Le message part dès que le Wi-Fi est connecté.
+  function setupWhatsApp(phone, label, code){
+    const number = waNumber(phone);
+    const text = encodeURIComponent(waMessage(label, code));
+    waLink.href = `whatsapp://send?phone=${number}&text=${text}`;
+    waWebLink.href = `https://wa.me/${number}?text=${text}`;
+    waWebLink.style.display = 'none';
+  }
+
+  waLink.addEventListener('click', ()=>{
     if(window.__currentOrderRef){
       const { updateDoc, serverTimestamp } = window.__fb;
       updateDoc(window.__currentOrderRef, { waSentAt: serverTimestamp() }).catch(()=>{});
     }
+    // Si l'écran ne bascule pas vers WhatsApp au bout de 2 s, on propose le lien web.
+    let left = false;
+    const onHide = ()=>{ if(document.hidden) left = true; };
+    document.addEventListener('visibilitychange', onHide);
+    setTimeout(()=>{
+      document.removeEventListener('visibilitychange', onHide);
+      if(!left) waWebLink.style.display = 'block';
+    }, 2000);
   });
 
   // ============================================================
@@ -1682,10 +1774,18 @@
           <td>${r.forfaitLabel||''}<br><span style="color:#5A6B8C;">${r.montant||0} FCFA</span></td>
           <td><span class="badge ${badgeClass[r.statut]||'stock'}">${statutLabel[r.statut]||r.statut}</span></td>
           <td>Achat : ${fmt(r.created)||'—'}${r.validatedAt ? `<br>Validé : ${fmt(r.validatedAt.toMillis ? r.validatedAt.toMillis() : null)}` : ''}</td>
-          <td><button class="row-action" data-id="${r.id}">Facture</button></td>
+          <td><button class="row-action" data-id="${r.id}">Facture</button>${r.statut==='validee' && r.ticketCode ? `<button class="wa-row" data-wa="${r.id}" title="Renvoyer le code au client sur WhatsApp">💬 Code</button>` : ''}</td>
         </tr>`).join('') || '<tr><td colspan="5" class="empty">Aucun résultat.</td></tr>';
       tbody.querySelectorAll('.row-action').forEach(btn=>{
         btn.onclick = ()=> afficherFacture(btn.dataset.id);
+      });
+      // Renvoyer le code au client sur WhatsApp (utile s'il l'a perdu)
+      tbody.querySelectorAll('.wa-row').forEach(btn=>{
+        btn.onclick = ()=>{
+          const o = (window.__allOrderRows || []).find(x => x.id === btn.dataset.wa);
+          if(!o || !o.ticketCode) return;
+          window.open('https://wa.me/' + waNumber(o.phone) + '?text=' + encodeURIComponent(waMessage(o.forfaitLabel || '', o.ticketCode)), '_blank');
+        };
       });
     }
     const historySearch = document.getElementById('historySearch');
