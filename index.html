@@ -352,6 +352,7 @@
   #agentPanel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 16px 16px;margin-top:8px;}
   #agentPanel p{font-size:12.5px;color:#5A6B8C;line-height:1.5;margin:10px 0 0;}
   #agentPanel #agentNom,#agentPanel #agentCode{text-transform:uppercase;}
+  #agentPanel .agent-once{font-weight:600;}
   #agentPanel #agentCode{font-family:'IBM Plex Mono',monospace;letter-spacing:2px;text-align:center;font-size:17px;}
   .agent-btn{width:100%;margin-top:14px;padding:13px;border:none;border-radius:10px;background:var(--blue-deep);color:#fff;font-weight:700;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;}
   .agent-btn:disabled{background:#B9C4D6;cursor:default;}
@@ -494,7 +495,7 @@
           <button type="button" class="agent-btn signal" id="agentType">⌨️ Taper le code</button>
         </div>
         <p>Le client achète en ligne ? Il choisit son forfait plus bas : la vente vous est attribuée automatiquement.</p>
-        <label class="agent-check"><input type="checkbox" id="agentErase"><span>Effacer mes infos après la vente (à cocher sur le téléphone du client)</span></label>
+        <p class="agent-once">🔒 Une session = une seule vente. Dès que le client est connecté (ou que son achat est envoyé), vos infos s'effacent toutes seules : vous les saisissez de nouveau pour chaque client.</p>
         <button type="button" class="agent-btn ghost" id="agentLogout">Terminer la session agent</button>
       </div>
 
@@ -842,6 +843,12 @@
         <div class="card">
           <h2>Mes agents</h2>
           <div id="agList"><div class="empty">Aucun agent pour le moment.</div></div>
+        </div>
+
+        <div class="card" id="agTrashCard" style="display:none;">
+          <h2>🗑️ Corbeille des agents <span id="agTrashCount" style="font-weight:500;font-size:13px;color:#5A6B8C;"></span></h2>
+          <p class="ag-sub">Un agent mis à la corbeille ne peut plus enregistrer de ventes, mais son historique est conservé. Restaurez-le pour le retrouver tel quel.</p>
+          <div id="agTrash"></div>
         </div>
 
         <div class="card" id="agSalesCard">
@@ -2433,7 +2440,7 @@
   const K_ERASE = 'shaman_agent_erase';
   const K_DIR = 'shaman_agent_dir';          // annuaire : empreintes des agents + codes désactivés
   const K_KNOWN = 'shaman_agent_known';      // paires déjà validées sur cet appareil
-  const SESSION_MS = 12 * 60 * 60 * 1000;    // une session agent dure 12 h au maximum
+  const SESSION_MS = 20 * 60 * 1000;         // session à usage unique : 1 vente, 20 min au maximum
   const DIR_REFRESH_MS = 30 * 60 * 1000;
   const ADMIN_WA = '2250748935686';          // WhatsApp de secours : 07 48 93 56 86
 
@@ -2460,7 +2467,7 @@
   const panel = $('agentPanel'), loginPane = $('agentLogin'), activePane = $('agentActive');
   const nomEl = $('agentNom'), codeEl = $('agentCode'), validateBtn = $('agentValidate');
   const msgEl = $('agentMsg'), whoEl = $('agentWho'), whoSub = $('agentWhoSub');
-  const eraseChk = $('agentErase'), syncBox = $('agentSync');
+  const syncBox = $('agentSync');
 
   // --- état ---
   let session = null;
@@ -2511,7 +2518,7 @@
   }
   function stillValid(){
     if(!session) return false;
-    if(Date.now() > session.until){ endSession("Session agent expirée : identifiez-vous de nouveau.", 'info'); return false; }
+    if(Date.now() > session.until){ endSession("Session agent expirée (20 min) : identifiez-vous de nouveau.", 'info'); return false; }
     return true;
   }
 
@@ -2520,7 +2527,7 @@
       loginPane.hidden = true; activePane.hidden = false;
       setLed('ok');
       whoEl.textContent = session.nom;
-      whoSub.textContent = session.online ? 'Agent reconnu et confirmé en ligne' : 'Agent reconnu (validé sans internet)';
+      whoSub.textContent = (session.online ? 'Agent reconnu et confirmé en ligne' : 'Agent reconnu (validé sans internet)') + ' · valable pour 1 vente';
       stateTxt.textContent = session.nom + ' — session active';
     } else {
       loginPane.hidden = false; activePane.hidden = true;
@@ -2582,7 +2589,7 @@
       const t = Date.now();
       session = { nom, code, at: t, until: t + SESSION_MS, online: false };
       saveSession(); render();
-      say('✅ Agent reconnu. Vous pouvez connecter vos clients.', 'ok');
+      say('✅ Agent reconnu. Connectez UN client : vos infos s\'effacent ensuite automatiquement.', 'ok');
       confirmOnline(session, 6000);
     } finally { validating = false; }
   }
@@ -2608,10 +2615,10 @@
   // --- journal des ventes de l'appareil (file d'attente d'envoi) ---
   function loadLog(){
     const log = lsJson(K_LOG, []);
-    const limit = Date.now() - 90 * 86400000;
-    return Array.isArray(log) ? log.filter(e => !(e.synced && e.t < limit)) : [];
+    // Une vente déjà envoyée est effacée du téléphone tout de suite (ni nom ni code d'agent gardés).
+    return Array.isArray(log) ? log.filter(e => !e.synced) : [];
   }
-  function saveLog(log){ lsSet(K_LOG, JSON.stringify(log.slice(-300))); }
+  function saveLog(log){ lsSet(K_LOG, JSON.stringify(log.filter(e => !e.synced).slice(-300))); }
   function patchEntry(id, fn){
     const log = loadLog(); const m = log.find(x => x.id === id);
     if(m){ fn(m); saveLog(log); }
@@ -2720,7 +2727,7 @@
   };
   window.__agentAfterOrder = function(){
     try{
-      if(session && eraseChk.checked) endSession('Vente enregistrée pour ' + session.nom + '. Session agent terminée.', 'ok');
+      if(session) endSession('✅ Vente enregistrée pour ' + session.nom + '. Vos infos sont effacées : saisissez-les de nouveau pour le client suivant.', 'ok');
     }catch(e){}
   };
 
@@ -2740,7 +2747,7 @@
       ['ticketCodeStatus', 'ticketScanStatus'].forEach(i => { const el = $(i); if(el) el.textContent = (el.textContent || '') + note; });
       renderSync();
       flush();
-      if(eraseChk.checked) endSession('Vente enregistrée. Session agent terminée.', 'ok');
+      endSession('✅ Vente enregistrée. Vos infos sont effacées : saisissez-les de nouveau pour le client suivant.', 'ok');
     }catch(e){}
   };
 
@@ -2749,12 +2756,12 @@
   $('agentType').addEventListener('click', ()=>{ if(stillValid() && window.__openWifiModal) window.__openWifiModal('code'); });
   $('agentLogout').addEventListener('click', ()=> endSession('Session agent terminée.', 'info'));
 
-  eraseChk.checked = lsGet(K_ERASE) !== '0';       // coché par défaut
-  eraseChk.addEventListener('change', ()=> lsSet(K_ERASE, eraseChk.checked ? '1' : '0'));
+  lsDel(K_ERASE);                                  // ancien réglage « Effacer mes infos » : supprimé, l'effacement est toujours automatique
 
   // --- démarrage ---
   session = loadSession();
   render();
+  if(!session){ nomEl.value = ''; codeEl.value = ''; }   // jamais d'identité restée dans les champs
   if(session){ openPanel(true); }
   renderSync();
   function boot(){
@@ -2798,7 +2805,7 @@ window.__agentsAdminInit = function(){
   const shopUrl = location.origin + location.pathname;
   const GRACE_MS = 7 * 86400000;     // un ancien code reste accepté 7 jours pour les ventes déjà faites
 
-  const st = { agents: [], salesDocs: [], payouts: [], orders: [], codesDocs: {}, dirDoc: null, settings: null, periode: '30j' };
+  const st = { agents: [], salesDocs: [], payouts: [], cycles: [], orders: [], codesDocs: {}, dirDoc: null, settings: null, periode: '30j' };
   const loaded = { agents: false, codes: false, dir: false };
 
   // ---------------- pourcentage de gains : propre à chaque agent, avec historique ----------------
@@ -2851,6 +2858,10 @@ window.__agentsAdminInit = function(){
     st.payouts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
   }, onErr('Versements'));
+  onSnapshot(collection(db, 'agent_cycles'), snap => {
+    st.cycles = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, onErr('Remises à zéro'));
   onSnapshot(query(collection(db, 'orders'), where('hasAgent', '==', true)), snap => {
     st.orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
     renderAll();
@@ -2866,8 +2877,39 @@ window.__agentsAdminInit = function(){
     return m;
   }
 
+  // ---------------- cycles : règlement complet ou remise à zéro ----------------
+  // Un « cycle » archivé regroupe les ventes et les versements déjà soldés d'un agent.
+  // Ils restent consultables (historique, CSV) mais ne comptent plus dans ses compteurs.
+  function archSets(){
+    const keys = new Set(), pays = new Set();
+    st.cycles.forEach(c => { (c.keys || []).forEach(k => keys.add(k)); (c.payIds || []).forEach(i => pays.add(i)); });
+    return { keys, pays };
+  }
+  const payoutAgent = (p, byCode) => (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode)) || null;
+  // Compteurs EN COURS d'un agent (ce qui n'est pas encore archivé)
+  function agentCycle(agent){
+    const arch = archSets(), byCode = agentsByCode();
+    const sales = computeVentes().filter(v => v.counted && !v.archived && v.agent && v.agent.id === agent.id);
+    const pays = st.payouts.filter(p => { const a = payoutAgent(p, byCode); return a && a.id === agent.id && !arch.pays.has(p.id); });
+    const earned = sales.reduce((s, v) => s + v.commission, 0);
+    const paid = pays.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    return { sales, pays, earned, paid, due: earned - paid };
+  }
+  async function closeCycle(agent, motif, cyc, extraPay){
+    const pays = cyc.pays.map(p => p.id).concat(extraPay ? [extraPay.id] : []);
+    const paid = cyc.paid + (extraPay ? extraPay.montant : 0);
+    await addDoc(collection(db, 'agent_cycles'), {
+      agentId: agent.id, agentNom: agent.nom, agentCode: agent.code, motif,
+      atMs: Date.now(), at: serverTimestamp(),
+      keys: cyc.sales.map(v => v.key), payIds: pays,
+      nSales: cyc.sales.length, ca: cyc.sales.reduce((s, v) => s + (Number(v.montant) || 0), 0),
+      commission: cyc.earned, verse: paid, reste: Math.max(0, cyc.earned - paid)
+    });
+  }
+
   // ---------------- calcul des ventes ----------------
   function computeVentes(){
+    const arch = archSets();
     const byCode = agentsByCode();
     const ov = {};
     st.salesDocs.forEach(s => { if(s.id.indexOf('o_') === 0) ov[s.id] = s; });
@@ -2875,7 +2917,7 @@ window.__agentsAdminInit = function(){
 
     function push(v){
       v.agent = byCode.get(canon(v.agentCode)) || null;
-      v.commission = 0; v.counted = false;
+      v.commission = 0; v.counted = false; v.archived = arch.keys.has(v.key);
       if(v.statut === 'confirmee'){
         if(!v.agent){
           v.statut = 'anomalie'; v.derive = true;
@@ -2933,11 +2975,12 @@ window.__agentsAdminInit = function(){
     const inPeriod = ventes.filter(v => v.at >= since);
 
     // KPI
-    const counted = inPeriod.filter(v => v.counted);
+    const arch = archSets();
+    const counted = inPeriod.filter(v => v.counted && !v.archived);
     const ca = counted.reduce((s, v) => s + (Number(v.montant) || 0), 0);
     const com = counted.reduce((s, v) => s + v.commission, 0);
-    const allCom = ventes.filter(v => v.counted).reduce((s, v) => s + v.commission, 0);
-    const allPaid = st.payouts.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    const allCom = ventes.filter(v => v.counted && !v.archived).reduce((s, v) => s + v.commission, 0);
+    const allPaid = st.payouts.filter(p => !arch.pays.has(p.id)).reduce((s, p) => s + (Number(p.montant) || 0), 0);
     const todo = ventes.filter(v => v.statut === 'anomalie' || v.statut === 'a_traiter').length;
     $('agKpis').innerHTML = `
       <div class="stat"><div class="n">${counted.length}</div><div class="l">Ventes</div></div>
@@ -2955,20 +2998,27 @@ window.__agentsAdminInit = function(){
     ventes.forEach(v => {
       if(!v.agent) return;
       const s = stats[v.agent.id] || (stats[v.agent.id] = { nP: 0, caP: 0, comP: 0, comAll: 0, nAll: 0 });
-      if(v.counted){ s.nAll++; s.comAll += v.commission; if(v.at >= since){ s.nP++; s.caP += Number(v.montant) || 0; s.comP += v.commission; } }
+      if(v.counted && !v.archived){ s.nAll++; s.comAll += v.commission; if(v.at >= since){ s.nP++; s.caP += Number(v.montant) || 0; s.comP += v.commission; } }
     });
-    const paid = {}, payoutCount = {};
+    const paid = {}, payoutCount = {}, payoutLive = {};
     st.payouts.forEach(p => {
       const a = (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode));
       if(!a) return;
-      paid[a.id] = (paid[a.id] || 0) + (Number(p.montant) || 0); payoutCount[a.id] = (payoutCount[a.id] || 0) + 1;
+      payoutCount[a.id] = (payoutCount[a.id] || 0) + 1;
+      if(arch.pays.has(p.id)) return;
+      paid[a.id] = (paid[a.id] || 0) + (Number(p.montant) || 0); payoutLive[a.id] = (payoutLive[a.id] || 0) + 1;
     });
+    const lastCycle = {};
+    st.cycles.forEach(c => { if(c.agentId && (!lastCycle[c.agentId] || (c.atMs || 0) > (lastCycle[c.agentId].atMs || 0))) lastCycle[c.agentId] = c; });
 
-    const agents = st.agents.slice().sort((a, b) => (b.actif !== false) - (a.actif !== false) || String(a.nom).localeCompare(String(b.nom)));
+    const allAgents = st.agents.slice().sort((a, b) => (b.actif !== false) - (a.actif !== false) || String(a.nom).localeCompare(String(b.nom)));
+    const agents = allAgents.filter(a => !a.supprime);
+    const trashed = allAgents.filter(a => a.supprime);
     $('agList').innerHTML = agents.map(a => {
       const s = stats[a.id] || { nP: 0, caP: 0, comP: 0, comAll: 0, nAll: 0 };
       const p = paid[a.id] || 0, due = s.comAll - p, actif = a.actif !== false;
-      const canDelete = !s.nAll && !payoutCount[a.id] && !ventes.some(v => v.agent && v.agent.id === a.id);
+      const hasLive = !!s.nAll || !!payoutLive[a.id];
+      const lc = lastCycle[a.id];
       const old = (a.codesAnciens || []).map(o => o.code).filter(Boolean);
       return `
       <div class="ag-agent ${actif ? '' : 'off'}">
@@ -2980,8 +3030,9 @@ window.__agentsAdminInit = function(){
         ${old.length ? `<div class="ag-line">Anciens codes (n'ouvrent plus de session) : ${esc(old.join(', '))}</div>` : ''}
         <div class="ag-line">Pourcentage de gains : <b>${fmtTaux(tauxActuel(a))}</b>${agentHistory(a).length > 1 ? ' <span style="font-size:11.5px;">(historique : ' + agentHistory(a).slice().reverse().slice(0, 5).map(e => (e.from ? 'depuis le ' + fmtDay(e.from) : 'au départ') + ' ' + fmtTaux(e.taux)).join(' · ') + ')</span>' : ''}</div>
         <div class="ag-line">Période : <b>${s.nP}</b> vente${s.nP > 1 ? 's' : ''} · CA ${fcfa(s.caP)} · commission <b>${fcfa(s.comP)}</b></div>
+        ${lc ? `<div class="ag-line">Compteur remis à zéro le <b>${fmtDate(lc.atMs || ms(lc.at))}</b> (${lc.motif === 'reinit' ? 'agent réinitialisé' : 'gains réglés en totalité'}). L'historique est gardé.</div>` : ''}
         <div class="ag-money">
-          <div><div class="l">Total gagné</div><div class="v">${fcfa(s.comAll)}</div></div>
+          <div><div class="l">Gagné (en cours)</div><div class="v">${fcfa(s.comAll)}</div></div>
           <div><div class="l">Déjà versé</div><div class="v">${fcfa(p)}</div></div>
           <div class="due"><div class="l">Reste à payer</div><div class="v">${fcfa(due)}</div></div>
         </div>
@@ -2993,17 +3044,36 @@ window.__agentsAdminInit = function(){
           <button type="button" data-act="share" data-id="${esc(a.id)}">💬 Envoyer l'accès</button>
           <button type="button" data-act="copy" data-id="${esc(a.id)}">Copier le code</button>
           <button type="button" data-act="${actif ? 'off' : 'on'}" data-id="${esc(a.id)}">${actif ? 'Désactiver' : 'Réactiver'}</button>
-          ${canDelete ? `<button type="button" class="warn" data-act="del" data-id="${esc(a.id)}">Supprimer</button>` : ''}
+          ${hasLive ? `<button type="button" class="warn" data-act="reset" data-id="${esc(a.id)}">🔄 Remettre à zéro</button>` : ''}
+          <button type="button" class="warn" data-act="trash" data-id="${esc(a.id)}">🗑️ Supprimer</button>
         </div>
       </div>`;
     }).join('') || '<div class="empty">Aucun agent pour le moment.</div>';
 
+    // corbeille des agents
+    $('agTrashCard').style.display = trashed.length ? '' : 'none';
+    $('agTrashCount').textContent = trashed.length ? '(' + trashed.length + ')' : '';
+    $('agTrash').innerHTML = trashed.map(a => {
+      const s = stats[a.id] || { comAll: 0 };
+      const due = s.comAll - (paid[a.id] || 0);
+      const hasHistory = ventes.some(v => v.agent && v.agent.id === a.id) || !!payoutCount[a.id] || st.cycles.some(c => c.agentId === a.id);
+      return `
+      <div class="ag-agent off">
+        <div class="ag-head"><span class="ag-name">${esc(a.nom)}</span><span class="ag-pill off">Dans la corbeille</span></div>
+        <div class="ag-line">Code : <span class="ag-code">${esc(a.code)}</span> · supprimé le ${fmtDate(Number(a.supprimeAt) || 0)}${due > 0 ? ' · <b>reste à payer : ' + fcfa(due) + '</b>' : ''}</div>
+        <div class="ag-btns">
+          <button type="button" class="pay" data-act="restore-agent" data-id="${esc(a.id)}">♻️ Restaurer</button>
+          ${hasHistory ? '' : `<button type="button" class="warn" data-act="purge" data-id="${esc(a.id)}">Supprimer définitivement</button>`}
+        </div>
+      </div>`;
+    }).join('');
+
     // filtres agent (liste déroulante + ajout manuel)
     const filter = $('agFilter'), cur = filter.value;
-    filter.innerHTML = '<option value="">Tous les agents</option>' + agents.map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
-    filter.value = agents.some(a => a.id === cur) ? cur : '';
+    filter.innerHTML = '<option value="">Tous les agents</option>' + allAgents.map(a => `<option value="${esc(a.id)}">${esc(a.nom)}${a.supprime ? ' (corbeille)' : ''}</option>`).join('');
+    filter.value = allAgents.some(a => a.id === cur) ? cur : '';
     const man = $('agManAgent'), curM = man.value;
-    man.innerHTML = agents.filter(a => a.actif !== false).map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
+    man.innerHTML = agents.filter(a => a.actif !== false && !a.supprime).map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
     if(curM) man.value = curM;
 
     // ventes
@@ -3015,9 +3085,9 @@ window.__agentsAdminInit = function(){
       <div class="ag-sale ${v.statut === 'rejetee' ? 'rejetee' : ''}">
         <div><b>${esc(v.agent ? v.agent.nom : v.agentNom)}</b>
           <span class="ag-pill ${v.source === 'en_ligne' ? 'online' : 'phys'}">${v.source === 'en_ligne' ? 'En ligne' : 'Physique'}</span>
-          ${statutPill[v.statut] || ''}</div>
+          ${statutPill[v.statut] || ''}${v.archived ? '<span class="ag-pill on">Archivée</span>' : ''}</div>
         <div class="meta">${fmtDate(v.at)}${v.forfaitLabel ? ' · ' + esc(v.forfaitLabel) : ''}${v.ticketCode ? ' · ticket ' + esc(v.ticketCode) : ''}${v.client ? ' · client ' + esc(v.client) : ''}</div>
-        <div class="amt">${fcfa(v.montant)} → commission <b>${v.counted ? fcfa(v.commission) + ' (' + fmtTaux(v.taux) + ')' : '—'}</b></div>
+        <div class="amt">${fcfa(v.montant)} → commission <b>${v.counted ? fcfa(v.commission) + ' (' + fmtTaux(v.taux) + ')' : '—'}</b>${v.archived ? ' <span style="font-size:11px;color:#5A6B8C;">(déjà soldée, plus comptée)</span>' : ''}</div>
         ${v.motif && v.statut !== 'confirmee' ? `<div class="motif">${esc(v.motif)}</div>` : ''}
         <div class="acts">
           ${v.source === 'physique' && v.statut === 'anomalie' && !v.derive ? `<select data-sel="${esc(v.key)}" aria-label="Forfait">${forfaitOpts}</select><button type="button" data-act="confirm" data-key="${esc(v.key)}">Confirmer la vente</button>` : ''}
@@ -3028,10 +3098,13 @@ window.__agentsAdminInit = function(){
     // versements de l'agent sélectionné
     const pbox = $('agPayoutsBox');
     if(sel){
-      const pays = st.payouts.filter(p => { const a = (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode)); return a && a.id === sel; })
+      const pays = st.payouts.filter(p => { const a = (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode)); return a && a.id === sel && !arch.pays.has(p.id); })
         .sort((a, b) => (b.atMs || 0) - (a.atMs || 0));
-      pbox.innerHTML = `<h3 style="font-size:13px;color:#0B3D91;margin:18px 0 6px;">Versements faits à cet agent</h3>` +
-        (pays.map(p => `<div class="dash-list-row"><div>${fmtDate(p.atMs || ms(p.at))}<div class="sub">${esc(p.note || '')}</div></div><div><b>${fcfa(p.montant)}</b> <button type="button" class="row-action" data-act="delpay" data-id="${esc(p.id)}">Annuler</button></div></div>`).join('') || '<div class="empty">Aucun versement enregistré.</div>');
+      const cycs = st.cycles.filter(c => c.agentId === sel).sort((a, b) => (b.atMs || 0) - (a.atMs || 0));
+      pbox.innerHTML = `<h3 style="font-size:13px;color:#0B3D91;margin:18px 0 6px;">Versements en cours (compteur actuel)</h3>` +
+        (pays.map(p => `<div class="dash-list-row"><div>${fmtDate(p.atMs || ms(p.at))}<div class="sub">${esc(p.note || '')}</div></div><div><b>${fcfa(p.montant)}</b> <button type="button" class="row-action" data-act="delpay" data-id="${esc(p.id)}">Annuler</button></div></div>`).join('') || '<div class="empty">Aucun versement en cours.</div>') +
+        (cycs.length ? `<h3 style="font-size:13px;color:#0B3D91;margin:18px 0 6px;">Historique des remises à zéro</h3>` +
+          cycs.map(c => `<div class="dash-list-row"><div>${fmtDate(c.atMs || ms(c.at))} · ${c.motif === 'reinit' ? 'Réinitialisé' : 'Réglé en totalité'}<div class="sub">${Number(c.nSales) || 0} vente(s) · CA ${fcfa(c.ca)} · gagné ${fcfa(c.commission)} · versé ${fcfa(c.verse)}${Number(c.reste) > 0 ? ' · <b>non versé ' + fcfa(c.reste) + '</b>' : ''}</div></div><div><button type="button" class="row-action" data-act="uncycle" data-id="${esc(c.id)}">Annuler</button></div></div>`).join('') : '');
     } else pbox.innerHTML = '';
 
     window.__agentVentesAffichees = rows;
@@ -3236,20 +3309,39 @@ window.__agentsAdminInit = function(){
           await updateDoc(doc(db, 'agents', agent.id), { actif: false, desactiveAt: Date.now() });
       }
       else if(act === 'on'){ await updateDoc(doc(db, 'agents', agent.id), { actif: true }); }
-      else if(act === 'del'){
-        if(confirm('Supprimer définitivement ' + agent.nom + ' ?')) await deleteDoc(doc(db, 'agents', agent.id));
+      else if(act === 'trash'){
+        const cyc = agentCycle(agent);
+        const warn = cyc.due > 0 ? '\n\nIl lui reste ' + fcfa(cyc.due) + ' à payer : son solde est gardé dans la corbeille, rien n\'est perdu.' : '';
+        if(!confirm('Mettre ' + agent.nom + ' à la corbeille ?\n\nIl ne pourra plus enregistrer de ventes. Vous pourrez le restaurer à tout moment.' + warn)) return;
+        await updateDoc(doc(db, 'agents', agent.id), {
+          supprime: true, supprimeAt: Date.now(), etaitActif: agent.actif !== false,
+          actif: false, desactiveAt: (agent.actif === false && agent.desactiveAt) ? agent.desactiveAt : Date.now()
+        });
+      }
+      else if(act === 'reset'){
+        const cyc = agentCycle(agent);
+        if(!cyc.sales.length && !cyc.pays.length){ alert('Les compteurs de ' + agent.nom + ' sont déjà à zéro.'); return; }
+        const lost = cyc.due > 0
+          ? '\n\n⚠️ Il reste ' + fcfa(cyc.due) + ' NON RÉGLÉS : ils seront archivés sans avoir été versés. Pour les payer d\'abord, annulez et touchez « Régler ».'
+          : '';
+        if(!confirm('Remettre ' + agent.nom + ' à zéro, comme un nouvel agent ?\n\n• Ses compteurs (ventes, gains, versements) repartent de 0\n• Son nom, son code et son pourcentage ne changent pas\n• Tout l\'historique reste consultable (et dans le CSV)' + lost)) return;
+        await closeCycle(agent, 'reinit', cyc);
       }
       else if(act === 'pay'){
-        const ventes = computeVentes();
-        const earned = ventes.filter(v => v.counted && v.agent && v.agent.id === agent.id).reduce((s, v) => s + v.commission, 0);
-        const byCode = agentsByCode();
-        const paidSoFar = st.payouts.filter(p => { const a = (p.agentId && agentById(p.agentId)) || byCode.get(canon(p.agentCode)); return a && a.id === agent.id; }).reduce((s, p) => s + (Number(p.montant) || 0), 0);
-        const due = earned - paidSoFar;
-        const txt = prompt('Montant versé à ' + agent.nom + ' (FCFA) :', String(due));
+        const cyc = agentCycle(agent);
+        const due = cyc.due;
+        if(!(due > 0)){ alert('Rien à payer pour ' + agent.nom + '.'); return; }
+        const txt = prompt('Montant versé à ' + agent.nom + ' (FCFA) :\nReste à payer : ' + fcfa(due), String(due));
         if(txt === null) return;
         const montant = Math.round(Number(String(txt).replace(/\s/g, '').replace(',', '.')));
         if(!(montant > 0)){ alert('Montant invalide.'); return; }
-        await addDoc(collection(db, 'agent_payouts'), { agentId: agent.id, agentCode: agent.code, agentNom: agent.nom, montant, atMs: Date.now(), at: serverTimestamp(), note: '' });
+        if(montant > due){ alert('Ce montant dépasse le reste à payer (' + fcfa(due) + ').'); return; }
+        const ref = await addDoc(collection(db, 'agent_payouts'), { agentId: agent.id, agentCode: agent.code, agentNom: agent.nom, montant, atMs: Date.now(), at: serverTimestamp(), note: '' });
+        if(montant === due){
+          // règlement complet : le compteur de l'agent repart à zéro (l'historique est archivé)
+          await closeCycle(agent, 'solde', cyc, { id: ref.id, montant });
+          alert('✅ ' + agent.nom + ' est réglé en totalité. Son compteur de gains est remis à zéro.');
+        }
       }
     }catch(err){ showErr('Action impossible : ' + err.message); }
   });
@@ -3274,11 +3366,33 @@ window.__agentsAdminInit = function(){
     }catch(err){ showErr('Action impossible : ' + err.message); }
   });
 
-  // Annuler un versement
+  // Corbeille des agents : restaurer / supprimer définitivement (seulement s'il n'a aucun historique)
+  $('agTrash').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-act]'); if(!b) return;
+    const agent = agentById(b.dataset.id); if(!agent) return;
+    try{
+      if(b.dataset.act === 'restore-agent'){
+        await updateDoc(doc(db, 'agents', agent.id), { supprime: false, supprimeAt: null, actif: agent.etaitActif !== false });
+      } else if(b.dataset.act === 'purge'){
+        const hasHistory = computeVentes().some(v => v.agent && v.agent.id === agent.id) || st.payouts.some(p => p.agentId === agent.id) || st.cycles.some(c => c.agentId === agent.id);
+        if(hasHistory){ alert('Cet agent a un historique de ventes : il reste dans la corbeille pour garder vos comptes.'); return; }
+        if(confirm('Supprimer définitivement ' + agent.nom + ' ? Cette action est irréversible.')) await deleteDoc(doc(db, 'agents', agent.id));
+      }
+    }catch(err){ showErr('Action impossible : ' + err.message); }
+  });
+
+  // Annuler un versement en cours, ou une remise à zéro
   $('agPayoutsBox').addEventListener('click', async e => {
-    const b = e.target.closest('[data-act="delpay"]'); if(!b) return;
-    if(!confirm('Annuler ce versement ? Le montant sera de nouveau compté comme « reste à payer ».')) return;
-    try{ await deleteDoc(doc(db, 'agent_payouts', b.dataset.id)); }catch(err){ showErr('Action impossible : ' + err.message); }
+    const b = e.target.closest('[data-act]'); if(!b) return;
+    try{
+      if(b.dataset.act === 'delpay'){
+        if(!confirm('Annuler ce versement ? Le montant sera de nouveau compté comme « reste à payer ».')) return;
+        await deleteDoc(doc(db, 'agent_payouts', b.dataset.id));
+      } else if(b.dataset.act === 'uncycle'){
+        if(!confirm('Annuler cette remise à zéro ?\n\nLes ventes et versements archivés seront de nouveau comptés dans les compteurs de l\'agent.')) return;
+        await deleteDoc(doc(db, 'agent_cycles', b.dataset.id));
+      }
+    }catch(err){ showErr('Action impossible : ' + err.message); }
   });
 
   // Ajout manuel d'une vente physique
@@ -3302,9 +3416,9 @@ window.__agentsAdminInit = function(){
   $('agCsvBtn').addEventListener('click', () => {
     const rows = window.__agentVentesAffichees || [];
     const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
-    const lines = [['Date', 'Agent', 'Code agent', 'Source', 'Forfait', 'Montant FCFA', 'Taux %', 'Commission FCFA', 'Ticket', 'Client', 'Statut'].map(q).join(';')];
+    const lines = [['Date', 'Agent', 'Code agent', 'Source', 'Forfait', 'Montant FCFA', 'Taux %', 'Commission FCFA', 'Ticket', 'Client', 'Statut', 'Compteur'].map(q).join(';')];
     const statutTxt = { confirmee: 'Confirmée', anomalie: 'À vérifier', a_traiter: 'En vérification', rejetee: 'Exclue' };
-    rows.forEach(v => lines.push([fmtDate(v.at), v.agent ? v.agent.nom : v.agentNom, v.agentCode, v.source === 'en_ligne' ? 'En ligne' : 'Physique', v.forfaitLabel, v.montant, v.counted ? v.taux : '', v.commission, v.ticketCode, v.client, statutTxt[v.statut] || v.statut].map(q).join(';')));
+    rows.forEach(v => lines.push([fmtDate(v.at), v.agent ? v.agent.nom : v.agentNom, v.agentCode, v.source === 'en_ligne' ? 'En ligne' : 'Physique', v.forfaitLabel, v.montant, v.counted ? v.taux : '', v.commission, v.ticketCode, v.client, statutTxt[v.statut] || v.statut, v.archived ? 'Archivée (soldée)' : 'En cours'].map(q).join(';')));
     const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = 'ventes-agents.csv';

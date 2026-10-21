@@ -568,7 +568,7 @@ service cloud.firestore {
 - *Ticket physique* : **Scanner le ticket** ou **Taper le code** connecte le client et enregistre la vente.
 - *Achat en ligne* : la commande porte le nom de l'agent ; vous validez comme toujours.
 - La vente est gardée sur le téléphone puis envoyée dès que possible (secours : « Prévenir par WhatsApp »).
-- Sur le téléphone d'un client, laissez cochée **« Effacer mes infos après la vente »**.
+- **Une session agent = une seule vente** : dès que le client est connecté (ou que son achat en ligne est envoyé), le nom et le code de l'agent s'effacent du téléphone. L'agent les saisit de nouveau pour chaque client. Sans vente, la session s'arrête toute seule au bout de 20 minutes.
 
 **Côté admin :** par agent : ventes, chiffre d'affaires, commission, total déjà versé et **reste à payer** (bouton **Régler**), export CSV. Les ventes physiques sont vérifiées automatiquement dans votre stock (le forfait donne le montant, le ticket passe en « vendu ») quand vous ouvrez l'espace admin. Un cas anormal (ticket inconnu, doublon, déjà vendu en ligne…) apparaît **« À vérifier »** et n'est pas compté tant que vous n'avez pas confirmé ou exclu.
 
@@ -591,3 +591,25 @@ Les tickets imprimés que vos agents vendent doivent être dans l'application, *
 - Un ticket physique vendu est gardé 30 jours **à partir de sa vente** (pas de sa date d'import) avant le nettoyage automatique.
 - L'application ne peut pas aller chercher les tickets toute seule dans votre routeur (le navigateur ne peut pas joindre un routeur local depuis internet) : l'import d'un lot se fait donc en une fois, quand vous créez les tickets.
 
+
+## Agents : session à usage unique, corbeille et remise à zéro des gains
+
+**Sur le téléphone du client (ce qui évite les gains attribués à tort)**
+- L'agent saisit son nom et son code → voyant vert → il connecte **un seul** client. Ensuite tout s'efface automatiquement (champs, session) : pour le client suivant, il saisit de nouveau ses infos.
+- Même chose pour un achat en ligne : la commande est attribuée à l'agent, puis la session se termine.
+- Si rien n'est fait, la session s'arrête seule au bout de **20 minutes**.
+- Une vente déjà envoyée à l'administrateur est effacée du téléphone (aucun nom ni code d'agent gardé).
+
+**Régler un agent : le compteur repart à zéro**
+- Touchez **💸 Régler** : si vous versez la totalité du reste à payer, le compteur de gains de l'agent est automatiquement **remis à zéro**. Ses ventes et versements sont archivés (badge « Archivée » dans la liste des ventes, colonne « Compteur » dans le CSV).
+- Un règlement partiel ne remet rien à zéro : le reste à payer diminue.
+- Le montant ne peut pas dépasser le reste à payer.
+- Une remise à zéro faite par erreur : sélectionnez l'agent (bouton « Détail »), puis dans « Historique des remises à zéro » touchez **Annuler**.
+
+**🔄 Remettre à zéro** : remet un agent « comme neuf » (compteurs à 0). Son nom, son code et son pourcentage ne changent pas. Si un reste était encore dû, l'application vous prévient avant. L'historique reste consultable.
+
+**🗑️ Corbeille des agents**
+- **Supprimer** met l'agent à la corbeille : il ne peut plus enregistrer de ventes, son historique et son solde sont gardés.
+- Dans la **Corbeille des agents**, **♻️ Restaurer** le remet comme avant. **Supprimer définitivement** n'existe que pour un agent sans aucun historique.
+
+**⚠️ Règles Firestore :** ce ticket ajoute une collection (`agent_cycles`). Copiez de nouveau le fichier `firestore.rules` complet dans Firebase > Firestore Database > Règles > **Publier**.
