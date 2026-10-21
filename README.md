@@ -7,9 +7,10 @@ Application en un seul fichier `index.html` : boutique client + tableau de bord 
 - `manifest.json` + `sw.js` — rendent l'app installable et consultable hors connexion internet
 - `icon-192.png` / `icon-512.png` — vos icônes (votre photo, déjà en place)
 - `qr-code.html` — génère le QR code à imprimer une fois votre lien en ligne
+- `firestore.rules` — règles de sécurité Firestore à coller dans Firebase (voir « Protection forte »)
 - `README.md` — ce guide
 
-(Les anciens fichiers `client.html` et `admin.html` ne sont plus utilisés — tout est maintenant dans `index.html`.)
+⚠️ **Supprimez de GitHub les anciens fichiers `client.html` et `admin.html`** : ils ne servent plus (tout est dans `index.html`) et ils contiennent encore l'ancien mot de passe admin.
 
 ## Comment les deux vues fonctionnent dans un seul fichier
 - Vos clients ouvrent simplement `index.html` → ils voient la boutique.
@@ -18,7 +19,7 @@ Application en un seul fichier `index.html` : boutique client + tableau de bord 
 Exemple : si votre lien boutique est `https://votre-pseudo.github.io/tickets-wifi-shaman/index.html`, votre lien admin est `https://votre-pseudo.github.io/tickets-wifi-shaman/index.html#admin`.
 
 ## Mot de passe admin
-`Shaman123chooz` — déjà en place dans `index.html`.
+Il n'est plus écrit dans le code : il est vérifié par **Firebase Authentication** (voir « Protection forte » plus bas). L'ancien mot de passe `Shaman123chooz` était visible publiquement dans GitHub : il ne fonctionne plus et ne doit plus jamais être réutilisé.
 
 ## Étape 1 — Relier l'application à Firebase (avant l'upload)
 
@@ -42,23 +43,7 @@ Exemple : si votre lien boutique est `https://votre-pseudo.github.io/tickets-wif
    ```
 5. Copiez tout ce bloc, et collez-le dans `index.html` à la place du bloc `firebaseConfig` actuel (cherchez les mots `REMPLACER` — un seul bloc à modifier, il sert à la fois pour la boutique et pour l'admin).
 6. Activez ensuite **Firestore Database** (menu de gauche > Firestore Database > Créer une base de données, mode production).
-7. Dans Firestore > Règles, collez :
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /orders/{orderId} {
-         allow read, write: if true;
-       }
-       match /tickets/{ticketId} {
-         allow read, write: if true;
-       }
-     }
-   }
-   ```
-   ⚠️ Règles ouvertes pour démarrer simplement. À restreindre plus tard (Firebase Auth pour l'admin) — dites-le-moi quand vous voudrez passer à cette étape.
-
-   **Si vous aviez déjà collé une version précédente de ces règles** (avec `allow update: if false` sur `orders`) : c'était une erreur de ma part dans une version antérieure de ce guide — elle empêchait vos validations de paiement d'aboutir complètement. Remplacez-la par la version ci-dessus dans Firestore > Règles, puis cliquez **Publier**.
+7. Pour les **règles de sécurité Firestore** et la **connexion administrateur**, suivez la section « Protection forte » plus bas.
 
 ## Étape 2 — Mettre en ligne avec GitHub
 
@@ -435,4 +420,155 @@ Ce message vient de WhatsApp et d'Android, pas de l'application ni du ticket. Qu
 Quand vous serez prêt, dites-le-moi et on branche la suite :
 - accès à l'API Wave Business ou compte CinetPay/PayDunya → paiement 100% automatique
 - Firebase Cloud Function planifiée → suppression garantie après 30 jours même sans ouvrir le tableau de bord
+
+
+## Protection forte (Firebase Authentication + règles Firestore)
+
+**Ce que ça change :** avant, n'importe qui pouvait lire votre stock de codes et écrire dans la base. Maintenant : le **stock de tickets, les commandes, les agents, les gains et les réglages ne sont lisibles que par vous** (connecté en administrateur). Un client ne peut créer que **sa propre commande « en attente »** et lire sa propre commande ; il ne peut ni la valider, ni voir celle des autres. Un agent ne peut enregistrer une vente que sous un code agent valide.
+
+**À faire dans cet ordre (≈ 10 minutes) :**
+
+1. **Firebase → Authentication → Commencer → Méthode de connexion** : activez **E-mail/Mot de passe** et **Anonyme**, puis Enregistrer.
+2. **Authentication → Utilisateurs → Ajouter un utilisateur** :
+   - E-mail : `admin@shamanchooz.wifi` (exactement, ce n'est pas une vraie boîte mail)
+   - Mot de passe : **choisissez un nouveau mot de passe solide**, que vous seul connaissez.
+3. **GitHub** : uploadez `index.html` et `sw.js` (remplacez les anciens), supprimez `admin.html` et `client.html`. Attendez 1 à 2 minutes que GitHub Pages se mette à jour.
+4. **Firebase → Firestore Database → Règles** : effacez tout, collez **tout** le contenu de `firestore.rules` (voir ci-dessous), puis **Publier**.
+5. Ouvrez `…/index.html#admin` : entrez le **nouveau** mot de passe. Bouton **Se déconnecter** en haut à droite.
+
+⚠️ Avec les nouvelles règles, les anciennes versions de l'app (sans connexion Firebase) ne fonctionnent plus : faites l'étape 3 **avant** l'étape 4.
+Le Walled Garden MikroTik n'a rien à changer : `*.googleapis.com` et `*.gstatic.com` couvrent déjà la connexion Firebase.
+Si ce même projet Firebase sert aussi à une autre application, ces règles remplacent tout : prévenez-moi avant de publier.
+
+```
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ============================================================
+    //  SHAMAN CHOOZ — Achat de codes tickets Wi-Fi
+    //  Règles complètes : à copier-coller en une fois dans
+    //  Firebase > Firestore Database > Règles > Publier.
+    //  L'e-mail ci-dessous doit être celui de l'utilisateur
+    //  administrateur créé dans Firebase > Authentication.
+    // ============================================================
+
+    // ---------- Outils ----------
+    function signedIn() {
+      return request.auth != null;
+    }
+    // Administrateur : connecté par e-mail + mot de passe avec CET e-mail précis
+    function isAdmin() {
+      return request.auth != null
+        && request.auth.token.firebase.sign_in_provider == 'password'
+        && request.auth.token.email == 'admin@shamanchooz.wifi';
+    }
+    // Propriétaire du document (clients et agents sont connectés anonymement)
+    function isOwner() {
+      return signedIn() && resource.data.uid == request.auth.uid;
+    }
+    function strOk(v, min, max) {
+      return v is string && v.size() >= min && v.size() <= max;
+    }
+    function codeDoc(code) {
+      return /databases/$(database)/documents/agent_codes/$(code);
+    }
+    // Code agent valide : actif, ou remplacé depuis moins de 7 jours (ventes déjà faites hors-ligne)
+    function codeActive(code) {
+      return get(codeDoc(code)).data.actif == true
+        || request.time.toMillis() < get(codeDoc(code)).data.expireMs;
+    }
+
+    // ---------- Commandes en ligne ----------
+    match /orders/{orderId} {
+      allow list: if isAdmin();
+      allow get: if isAdmin() || isOwner();
+      // Un client crée SA commande, uniquement "en attente", sans pouvoir la valider lui-même
+      allow create: if signedIn()
+        && request.resource.data.keys().hasOnly(['phone', 'forfaitId', 'forfaitLabel', 'montant', 'statut', 'createdAt', 'uid', 'hasAgent', 'agentNom', 'agentCode', 'agentAt'])
+        && request.resource.data.keys().hasAll(['phone', 'forfaitId', 'forfaitLabel', 'montant', 'statut', 'createdAt', 'uid'])
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.statut == 'attente'
+        && request.resource.data.createdAt == request.time
+        && strOk(request.resource.data.phone, 8, 25)
+        && strOk(request.resource.data.forfaitId, 1, 12)
+        && strOk(request.resource.data.forfaitLabel, 1, 40)
+        && request.resource.data.montant is number
+        && request.resource.data.montant > 0
+        && request.resource.data.montant <= 100000
+        && (!('agentCode' in request.resource.data)
+            || (request.resource.data.hasAgent == true
+                && strOk(request.resource.data.agentCode, 6, 12)
+                && strOk(request.resource.data.agentNom, 1, 60)
+                && exists(codeDoc(request.resource.data.agentCode))));
+      // Le client ne peut modifier que deux repères de suivi sur sa propre commande
+      allow update: if isAdmin()
+        || (isOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['connectAt', 'waSentAt']));
+      allow delete: if isAdmin();
+    }
+
+    // ---------- Stock de tickets : administrateur uniquement ----------
+    match /tickets/{ticketId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------- Agents commerciaux ----------
+    match /agents/{agentId} {
+      allow read, write: if isAdmin();
+    }
+    // Index des codes agents : un téléphone peut lire UN code précis (jamais la liste)
+    match /agent_codes/{code} {
+      allow get: if signedIn();
+      allow list, write: if isAdmin();
+    }
+    // Ventes physiques déclarées par les agents
+    match /agent_sales/{saleId} {
+      allow read: if isAdmin();
+      allow create: if isAdmin()
+        || (signedIn()
+            && request.resource.data.keys().hasOnly(['agentNom', 'agentCode', 'ticketCode', 'clientTime', 'mode', 'syncedAt', 'uid'])
+            && request.resource.data.keys().hasAll(['agentNom', 'agentCode', 'ticketCode', 'clientTime', 'mode', 'uid'])
+            && request.resource.data.uid == request.auth.uid
+            && request.resource.data.mode == 'physique'
+            && strOk(request.resource.data.agentCode, 6, 12)
+            && strOk(request.resource.data.agentNom, 1, 60)
+            && strOk(request.resource.data.ticketCode, 1, 20)
+            && request.resource.data.clientTime is number
+            && codeActive(request.resource.data.agentCode));
+      allow update: if isAdmin()
+        || (isOwner() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['syncedAt']));
+      allow delete: if isAdmin();
+    }
+    match /agent_payouts/{payoutId} {
+      allow read, write: if isAdmin();
+    }
+
+    // ---------- Réglages ----------
+    match /meta/{docId} {
+      // annuaire des agents (empreintes + codes désactivés) : lisible par les téléphones
+      allow get: if docId == 'agent_dir' && signedIn();
+      // réglages (pourcentage de gains…) : administrateur uniquement
+      allow read, write: if isAdmin();
+    }
+  }
+}
+```
+
+## Agents commerciaux
+
+**Créer un agent :** `#admin` → **🤝 Agents commerciaux** → nom + **pourcentage de gains de cet agent** → **Créer l'agent**. L'application génère son code personnel. Bouton **💬 Envoyer l'accès** pour le lui transmettre sur WhatsApp.
+
+**Changer le code d'un agent (si trop compliqué à retenir) :** sur sa fiche → **🔑 Changer le code** → tapez un code de **6 à 12 lettres/chiffres avec au moins 1 lettre ET 1 chiffre** (ex. `KONE24`), ou laissez vide pour un code automatique. L'ancien code n'ouvre plus de session ; les ventes déjà faites avec l'ancien code et pas encore envoyées restent acceptées 7 jours.
+
+**Changer le pourcentage d'un agent :** sur sa fiche → **% Changer le pourcentage**. Chaque agent a le sien. Le nouveau pourcentage s'applique aux ventes faites **à partir de maintenant** ; ses ventes passées gardent l'ancien pourcentage (historique affiché sur la fiche).
+
+**Côté agent (boutique) :** juste sous les 4 boutons, la barre **Agent commercial** → nom + code → le voyant devient **vert**.
+- Code généré automatiquement : reconnu **sur le téléphone, sans aucune connexion**.
+- Code choisi par vous : reconnu grâce à l'annuaire des agents que le téléphone télécharge dès qu'il touche Firebase (c'est le cas via le Walled Garden du Wi-Fi SHAMAN). Sur un téléphone qui n'a jamais touché Firebase et sans aucune connexion, un code choisi par vous ne peut pas être vérifié : l'application l'explique au lieu d'afficher un faux voyant vert.
+- *Ticket physique* : **Scanner le ticket** ou **Taper le code** connecte le client et enregistre la vente.
+- *Achat en ligne* : la commande porte le nom de l'agent ; vous validez comme toujours.
+- La vente est gardée sur le téléphone puis envoyée dès que possible (secours : « Prévenir par WhatsApp »).
+- Sur le téléphone d'un client, laissez cochée **« Effacer mes infos après la vente »**.
+
+**Côté admin :** par agent : ventes, chiffre d'affaires, commission, total déjà versé et **reste à payer** (bouton **Régler**), export CSV. Les ventes physiques sont vérifiées automatiquement dans votre stock (le forfait donne le montant, le ticket passe en « vendu ») quand vous ouvrez l'espace admin. Un cas anormal (ticket inconnu, doublon, déjà vendu en ligne…) apparaît **« À vérifier »** et n'est pas compté tant que vous n'avez pas confirmé ou exclu.
 

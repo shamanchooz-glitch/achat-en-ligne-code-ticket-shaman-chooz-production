@@ -27,8 +27,11 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.13.0/firebase-app.js";
   import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, getDocs,
-           onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit }
+           onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit, setDoc, getDoc }
     from "https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js";
+  import { initializeAuth, indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence,
+           signInAnonymously, signInWithEmailAndPassword, signOut, onAuthStateChanged }
+    from "https://www.gstatic.com/firebasejs/10.13.0/firebase-auth.js";
 
   const firebaseConfig = {
     apiKey: "AIzaSyDvVEN68EduHLRZ_LVUfQCYjXTGs-A9ygQ",
@@ -40,9 +43,29 @@
   };
 
   const app = initializeApp(firebaseConfig);
+  const auth = initializeAuth(app, { persistence: [indexedDBLocalPersistence, browserLocalPersistence, browserSessionPersistence] });
   const db = getFirestore(app);
   window.__db = db;
-  window.__fb = { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit };
+
+  // ---- Authentification : clients et agents = connexion anonyme ; administrateur = e-mail + mot de passe ----
+  const ADMIN_EMAIL = "admin@shamanchooz.wifi";   // doit être identique dans les règles Firestore
+  let authResolved = false, resolveAuth;
+  window.__auth = auth;
+  window.__authReady = new Promise(res => { resolveAuth = res; });
+  window.__authUid = () => (auth.currentUser ? auth.currentUser.uid : null);
+  window.__isAdminUser = () => { const u = auth.currentUser; return !!(u && !u.isAnonymous && u.email === ADMIN_EMAIL); };
+  onAuthStateChanged(auth, async user => {
+    if(user){
+      if(!authResolved){ authResolved = true; resolveAuth(user); }
+      window.dispatchEvent(new CustomEvent('auth-changed', { detail: { admin: window.__isAdminUser() } }));
+      return;
+    }
+    try{ await signInAnonymously(auth); }
+    catch(e){ console.warn('Connexion anonyme impossible :', e && e.code); if(!authResolved){ authResolved = true; resolveAuth(null); } }
+  });
+  window.__adminLogin = async function(password){ await window.__authReady; await signInWithEmailAndPassword(auth, ADMIN_EMAIL, password); };
+  window.__adminLogout = async function(){ await signOut(auth); };
+  window.__fb = { collection, addDoc, doc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, orderBy, serverTimestamp, writeBatch, limit, setDoc, getDoc };
   window.dispatchEvent(new Event('firebase-ready'));
 </script>
 
@@ -55,12 +78,94 @@
   const HOTSPOT_LOGIN_URL = "http://10.10.10.1/login";
 </script>
 
+<!-- Le mot de passe administrateur n'est plus dans le code : il est géré par Firebase Authentication. -->
+
 <!-- ============================================================
-  MOT DE PASSE ADMIN — changez cette valeur avant mise en ligne
+  AGENTS COMMERCIAUX — outils communs (boutique + admin)
+  - Un code généré automatiquement est "auto-vérifiable" : le téléphone
+    contrôle nom + code SANS internet (voyant vert hors-ligne).
+  - Un code choisi par l'administrateur est reconnu grâce à l'annuaire
+    des agents, mémorisé sur le téléphone dès qu'il touche Firebase
+    (ce qui est le cas via le Walled Garden du Wi-Fi SHAMAN).
+  - Le pourcentage de commission se règle dans l'espace admin.
 ============================================================= -->
 <script>
-  const ADMIN_PASSWORD = "Shaman123chooz";
+  window.SHAMAN_AGENT = (function(){
+    const DEFAULT_TAUX = 50;                      // utilisé tant que l'admin n'a rien réglé
+    const SECRET = 'SHAMAN-CHOOZ-AGENTS-v1';      // ne pas modifier après avoir créé des agents
+    const ALPHA = '23456789ABCDEFGHJKMNPQRSTUVWXYZ'; // sans 0 O 1 I L (évite les confusions)
+
+    // Nom : majuscules, sans accents, sans espaces ni symboles
+    function norm(s){
+      return String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+    }
+    // Code : majuscules, lettres et chiffres uniquement (forme officielle, sans tiret)
+    function normCode(s){ return String(s||'').toUpperCase().replace(/[^A-Z0-9]/g,''); }
+
+    // Petit hash 53 bits (cyrb53) — synchrone, sans dépendance
+    function hash(str){
+      let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+      for(let i=0, ch; i<str.length; i++){
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+      }
+      h1 = Math.imul(h1 ^ (h1>>>16), 2246822507) ^ Math.imul(h2 ^ (h2>>>13), 3266489909);
+      h2 = Math.imul(h2 ^ (h2>>>16), 2246822507) ^ Math.imul(h1 ^ (h1>>>13), 3266489909);
+      return 4294967296 * (2097151 & h2) + (h1>>>0);
+    }
+
+    // --- Code généré (auto-vérifiable hors-ligne) : 4 caractères aléatoires + 4 de contrôle ---
+    function check(nomNorm, payload){
+      let n = hash(SECRET + '|' + nomNorm + '|' + payload), out = '';
+      for(let i=0; i<4; i++){ out += ALPHA[n % ALPHA.length]; n = Math.floor(n / ALPHA.length); }
+      return out;
+    }
+    function randomPayload(){
+      let out = '';
+      const buf = new Uint8Array(4);
+      try{ crypto.getRandomValues(buf); }catch(e){ for(let i=0;i<4;i++) buf[i] = Math.floor(Math.random()*256); }
+      for(let i=0;i<4;i++) out += ALPHA[buf[i] % ALPHA.length];
+      return out;
+    }
+    function makeCode(nom){
+      const payload = randomPayload();
+      return payload + check(norm(nom), payload);      // 8 caractères, sans tiret
+    }
+    // Vrai si (nom, code) forment une paire de code GÉNÉRÉ valide — fonctionne SANS internet
+    function verify(nom, code){
+      const n = norm(nom), c = normCode(code);
+      if(!n || c.length !== 8) return false;
+      for(const ch of c){ if(ALPHA.indexOf(ch) < 0) return false; }
+      return check(n, c.slice(0,4)) === c.slice(4);
+    }
+
+    // --- Empreinte (nom + code) pour l'annuaire : lente exprès, pour décourager le décodage ---
+    function credHash(nom, code){
+      let s = SECRET + '|' + norm(nom) + '|' + normCode(code);
+      for(let i=0; i<30000; i++) s = hash(s + i).toString(36);
+      return s + hash(s + '#').toString(36);
+    }
+
+    // --- Code choisi par l'administrateur : règles de solidité ('' = accepté) ---
+    function codeError(code){
+      const c = normCode(code);
+      if(c.length < 6 || c.length > 12) return 'Le code doit faire entre 6 et 12 caractères (lettres et chiffres).';
+      if(!/[A-Z]/.test(c) || !/[0-9]/.test(c)) return 'Le code doit contenir au moins une lettre ET un chiffre (exemple : KONE24).';
+      return '';
+    }
+
+    function commission(montant, taux){
+      const t = (taux == null || isNaN(Number(taux))) ? DEFAULT_TAUX : Number(taux);
+      return Math.round((Number(montant)||0) * t / 100);
+    }
+    function esc(s){
+      return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+    return { DEFAULT_TAUX, norm, normCode, fmtCode: normCode, makeCode, verify, credHash, codeError, commission, esc };
+  })();
 </script>
+
 
 <style>
   #installBanner{display:none;background:#0B3D91;color:#fff;text-align:center;font-size:13px;padding:10px 16px;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap;}
@@ -227,6 +332,88 @@
     #invoiceContent, #invoiceContent *{visibility:visible;}
     #invoiceContent{position:absolute;top:0;left:0;width:100%;}
   }
+
+  /* ===== Agent commercial — boutique ===== */
+  #agentBox{max-width:480px;margin:0 auto;padding:0 16px;}
+  #agentBox [hidden]{display:none !important;}
+  #agentToggle{display:flex;align-items:center;gap:12px;width:100%;background:#fff;border:1px solid var(--line);border-radius:12px;padding:12px 14px;cursor:pointer;text-align:left;font-family:'Inter',sans-serif;color:var(--ink);box-shadow:0 1px 2px rgba(11,27,51,.06);}
+  #agentToggle .agent-title{font-weight:700;font-size:14px;color:var(--blue-deep);white-space:nowrap;}
+  #agentToggle .agent-state{flex:1;min-width:0;font-size:12px;color:#5A6B8C;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  #agentToggle .chev{color:#8092B0;font-size:14px;transition:transform .2s;}
+  #agentToggle[aria-expanded="true"] .chev{transform:rotate(180deg);}
+  .led{flex:0 0 auto;width:18px;height:18px;border-radius:50%;background:#B9C4D6;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55);transition:background .2s,box-shadow .2s;}
+  .led.ok{background:var(--signal);box-shadow:inset 0 0 0 2px rgba(255,255,255,.6),0 0 0 4px rgba(46,217,160,.28),0 0 14px rgba(46,217,160,.85);}
+  .led.bad{background:var(--danger);box-shadow:inset 0 0 0 2px rgba(255,255,255,.5),0 0 0 4px rgba(228,83,92,.22);}
+  .led.checking{background:var(--ticket);animation:ledPulse 1s ease-in-out infinite;}
+  @keyframes ledPulse{0%,100%{opacity:.4;}50%{opacity:1;}}
+  @media (prefers-reduced-motion:reduce){.led.checking{animation:none;}#agentToggle .chev{transition:none;}}
+  #agentToggle:focus-visible,#agentPanel button:focus-visible,#agentPanel input:focus-visible{outline:3px solid var(--blue-mid);outline-offset:2px;}
+  #agentPanel{background:#fff;border:1px solid var(--line);border-radius:12px;padding:6px 16px 16px;margin-top:8px;}
+  #agentPanel p{font-size:12.5px;color:#5A6B8C;line-height:1.5;margin:10px 0 0;}
+  #agentPanel #agentNom,#agentPanel #agentCode{text-transform:uppercase;}
+  #agentPanel #agentCode{font-family:'IBM Plex Mono',monospace;letter-spacing:2px;text-align:center;font-size:17px;}
+  .agent-btn{width:100%;margin-top:14px;padding:13px;border:none;border-radius:10px;background:var(--blue-deep);color:#fff;font-weight:700;font-size:14px;font-family:'Inter',sans-serif;cursor:pointer;}
+  .agent-btn:disabled{background:#B9C4D6;cursor:default;}
+  .agent-btn.ghost{background:#fff;color:var(--blue-deep);border:1px solid var(--line);}
+  .agent-btn.signal{background:var(--signal);color:#04241a;}
+  .agent-who{display:flex;align-items:center;gap:10px;margin-top:12px;padding:12px;border-radius:10px;background:#E9F9F1;border:1px solid #B7E9CE;color:#0A6B4A;font-size:13px;line-height:1.4;}
+  .agent-who b{font-size:15px;color:#064E36;}
+  .agent-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:10px;}
+  .agent-actions .agent-btn{margin-top:0;padding:12px 8px;font-size:13px;}
+  #agentMsg{margin-top:10px;font-size:13px;line-height:1.45;min-height:0;}
+  #agentMsg.bad{color:#8A1E27;background:#FDEBEC;border:1px solid #F5B7BC;border-radius:8px;padding:10px 12px;}
+  #agentMsg.ok{color:#0A6B4A;}
+  #agentMsg.info{color:#5A6B8C;}
+  #clientView .agent-check{display:flex;align-items:flex-start;gap:8px;font-size:12px;font-weight:500;color:#5A6B8C;margin:14px 0 0;line-height:1.4;cursor:pointer;}
+  #clientView .agent-check input{width:18px;height:18px;padding:0;margin:0;flex:0 0 auto;accent-color:var(--blue-deep);}
+  .agent-sync{margin-top:8px;border-radius:10px;padding:11px 14px;font-size:12.5px;line-height:1.5;}
+  .agent-sync.wait{background:#FFF6E5;border:1px solid #FFD98A;color:#7A5300;}
+  .agent-sync.ok{background:#E9F9F1;border:1px solid #B7E9CE;color:#0A6B4A;}
+  .agent-sync-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;}
+  .agent-sync-actions button{border:1px solid #E5C26A;background:#fff;color:#7A5300;border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+
+  /* ===== Agents commerciaux — admin ===== */
+  .ag-sub{font-size:12px;color:#5A6B8C;margin:0 0 12px;line-height:1.5;}
+  .ag-chips{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 14px;}
+  .ag-chip{border:1px solid var(--line);background:#fff;color:var(--blue-deep);border-radius:20px;padding:7px 12px;font-size:12px;font-weight:600;cursor:pointer;}
+  .ag-chip.on{background:var(--blue-deep);color:#fff;border-color:var(--blue-deep);}
+  .ag-form{display:flex;gap:8px;flex-wrap:wrap;align-items:center;}
+  .ag-form input[type=text]{flex:1;min-width:150px;padding:10px 12px;border-radius:8px;border:1px solid var(--line);font-size:14px;}
+  .ag-new{margin-top:12px;background:#E9F9F1;border:1px solid #B7E9CE;border-radius:10px;padding:12px 14px;font-size:13px;line-height:1.6;color:#064E36;}
+  .ag-new b{font-family:'IBM Plex Mono',monospace;font-size:16px;letter-spacing:1px;}
+  .ag-agent{border:1px solid var(--line);border-radius:12px;padding:14px;margin-bottom:12px;background:#fff;}
+  .ag-agent.off{background:var(--paper);}
+  .ag-head{display:flex;align-items:center;gap:10px;justify-content:space-between;flex-wrap:wrap;}
+  .ag-name{font-weight:700;font-size:15px;color:var(--ink);}
+  .ag-code{font-family:'IBM Plex Mono',monospace;font-weight:600;letter-spacing:1px;color:var(--blue-deep);}
+  .ag-line{font-size:12.5px;color:#5A6B8C;margin-top:6px;line-height:1.6;}
+  .ag-line b{color:var(--ink);}
+  .ag-money{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px;}
+  .ag-money div{background:var(--paper);border-radius:8px;padding:8px 10px;}
+  .ag-money .l{font-size:10.5px;color:#5A6B8C;}
+  .ag-money .v{font-family:'IBM Plex Mono',monospace;font-size:13px;font-weight:600;color:var(--blue-deep);}
+  .ag-money .due .v{color:#0A6B4A;}
+  .ag-btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .ag-btns button,.ag-sale button{border:1px solid var(--line);background:#fff;color:var(--blue-deep);border-radius:8px;padding:7px 10px;font-size:12px;font-weight:700;cursor:pointer;}
+  .ag-btns button.pay{background:var(--signal);border-color:var(--signal);color:#04241a;}
+  .ag-btns button.warn,.ag-sale button.warn{color:var(--danger);border-color:#F5B7BC;}
+  .ag-pill{font-size:10px;padding:3px 8px;border-radius:10px;font-weight:600;}
+  .ag-pill.on{background:#E6FBF3;color:#0A6B4A;}
+  .ag-pill.off{background:#FDEBEC;color:var(--danger);}
+  .ag-pill.online{background:#E9F1FF;color:var(--blue-mid);}
+  .ag-pill.phys{background:#FFF3DA;color:#8A5A00;}
+  .ag-pill.warn{background:#FFF3DA;color:#8A5A00;}
+  .ag-sale{border-bottom:1px solid var(--line);padding:11px 0;font-size:13px;}
+  .ag-sale:last-child{border-bottom:none;}
+  .ag-sale .meta{font-size:11.5px;color:#5A6B8C;margin-top:3px;line-height:1.5;}
+  .ag-sale .amt{font-family:'IBM Plex Mono',monospace;font-size:12.5px;margin-top:4px;}
+  .ag-sale .motif{margin-top:6px;font-size:12px;color:#8A5A00;background:#FFF3DA;border-radius:8px;padding:7px 10px;}
+  .ag-sale .acts{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px;align-items:center;}
+  .ag-sale select{padding:6px 8px;border-radius:8px;border:1px solid var(--line);font-size:12px;}
+  .ag-sale.rejetee{opacity:.55;}
+  .ag-badge{display:inline-block;min-width:20px;text-align:center;background:var(--danger);color:#fff;border-radius:10px;font-size:11px;padding:1px 7px;margin-left:6px;font-weight:700;}
+  .ag-filter{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:10px;}
+  .ag-filter select{flex:1;min-width:140px;}
 </style>
 </head>
 <body>
@@ -270,6 +457,49 @@
     <button id="wifiQrBtn">📶 Se connecter au Wi-Fi SHAMAN</button>
     <button id="shareLinkBtn">🔗 Partager le lien</button>
   </div>
+
+  <!-- ============================================================
+    ESPACE AGENT COMMERCIAL — juste sous les 4 boutons.
+    Replié par défaut pour ne pas gêner les clients ordinaires.
+  ============================================================= -->
+  <section id="agentBox" aria-label="Espace agent commercial">
+    <button type="button" id="agentToggle" aria-expanded="false" aria-controls="agentPanel">
+      <span class="led" id="agentLed" aria-hidden="true"></span>
+      <span class="agent-title">Agent commercial</span>
+      <span class="agent-state" id="agentState">Identifiez-vous</span>
+      <span class="chev" aria-hidden="true">▾</span>
+    </button>
+
+    <div id="agentSync" class="agent-sync" hidden></div>
+
+    <div id="agentPanel" hidden>
+      <div id="agentLogin">
+        <label for="agentNom">Nom de l'agent</label>
+        <input id="agentNom" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="Ex : KONE">
+        <label for="agentCode">Code agent</label>
+        <input id="agentCode" type="text" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" placeholder="Votre code">
+        <button type="button" class="agent-btn" id="agentValidate">Valider</button>
+        <p>Le voyant devient vert quand votre nom et votre code sont reconnus. La vérification se fait sur le téléphone, sans internet.</p>
+      </div>
+
+      <div id="agentActive" hidden>
+        <div class="agent-who">
+          <span class="led ok" aria-hidden="true"></span>
+          <div><b id="agentWho"></b><br><span id="agentWhoSub"></span></div>
+        </div>
+        <p><b>Le client a un ticket ?</b> Connectez-le :</p>
+        <div class="agent-actions">
+          <button type="button" class="agent-btn signal" id="agentScan">📷 Scanner le ticket</button>
+          <button type="button" class="agent-btn signal" id="agentType">⌨️ Taper le code</button>
+        </div>
+        <p>Le client achète en ligne ? Il choisit son forfait plus bas : la vente vous est attribuée automatiquement.</p>
+        <label class="agent-check"><input type="checkbox" id="agentErase"><span>Effacer mes infos après la vente (à cocher sur le téléphone du client)</span></label>
+        <button type="button" class="agent-btn ghost" id="agentLogout">Terminer la session agent</button>
+      </div>
+
+      <div id="agentMsg" role="status" aria-live="polite"></div>
+    </div>
+  </section>
 
   <div id="wifiQrModal">
     <div style="font-weight:700;font-size:15px;">📶 Connexion au Wi-Fi SHAMAN</div>
@@ -399,6 +629,7 @@
         <h1>Tableau de bord — Tickets Wi-Fi</h1>
         <div class="sub">WI-FI 6 SHAMAN HOTSPOT</div>
       </div>
+      <button type="button" id="adminSignOut" style="background:rgba(255,255,255,.14);color:#fff;border:1px solid rgba(255,255,255,.35);border-radius:8px;padding:8px 12px;font-size:12px;font-weight:600;cursor:pointer;">Se déconnecter</button>
     </header>
 
     <div id="adminErrBanner" style="display:none;background:#FDEBEC;color:#8A1E27;padding:12px 40px 12px 16px;font-size:13px;position:relative;">
@@ -420,6 +651,7 @@
           <a href="#admin-import" class="menu-pill">Importer des codes tickets</a>
           <a href="#admin-stock" class="menu-pill">Stock de tickets</a>
           <a href="#admin-historique" class="menu-pill">Historique des achats & factures</a>
+          <a href="#admin-agents" class="menu-pill"><span>🤝 Agents commerciaux <b class="ag-badge" id="agBadge" hidden></b></span></a>
           <a href="#admin-corbeille" class="menu-pill">🗑️ Corbeille</a>
         </nav>
       </div>
@@ -568,6 +800,62 @@
             <thead><tr><th>Client</th><th>Forfait</th><th>Statut</th><th>Heures</th><th></th></tr></thead>
             <tbody id="historyTable"></tbody>
           </table>
+        </div>
+      </div>
+
+
+      <div id="page-agents" class="admin-page" style="display:none;">
+        <a href="#admin" class="page-back">← Retour</a>
+
+        <div class="card">
+          <h2>🤝 Agents commerciaux</h2>
+          <p class="ag-sub" id="agIntro"></p>
+          <div class="ag-chips" id="agPeriods" role="group" aria-label="Période">
+            <button type="button" class="ag-chip" data-p="today">Aujourd'hui</button>
+            <button type="button" class="ag-chip" data-p="7j">7 jours</button>
+            <button type="button" class="ag-chip on" data-p="30j">30 jours</button>
+            <button type="button" class="ag-chip" data-p="all">Tout</button>
+          </div>
+          <div class="stats" id="agKpis" style="margin-bottom:0;"></div>
+        </div>
+
+        <div class="card">
+          <h2>Nouvel agent</h2>
+          <p class="ag-sub">Saisissez le nom de l'agent et son pourcentage de gains : l'application crée son code personnel. Ensuite, sur sa fiche, vous pourrez changer son code (pour un code plus facile à retenir) et son pourcentage.</p>
+          <div class="ag-form">
+            <input type="text" id="agNewNom" placeholder="Nom de l'agent (ex : KONE)" autocomplete="off">
+            <input type="text" id="agNewTaux" inputmode="decimal" placeholder="%" autocomplete="off" style="max-width:80px;flex:0 0 80px;text-align:center;" aria-label="Pourcentage de gains">
+            <span style="font-weight:700;">%</span>
+            <button type="button" class="btn-primary" id="agNewBtn">Créer l'agent</button>
+          </div>
+          <div id="agNewMsg" style="font-size:12px;color:#8A1E27;margin-top:8px;"></div>
+          <div id="agNewResult"></div>
+        </div>
+
+        <div class="card">
+          <h2>Mes agents</h2>
+          <div id="agList"><div class="empty">Aucun agent pour le moment.</div></div>
+        </div>
+
+        <div class="card" id="agSalesCard">
+          <h2>Ventes des agents</h2>
+          <div class="ag-filter">
+            <select id="agFilter" aria-label="Filtrer par agent"><option value="">Tous les agents</option></select>
+            <button type="button" class="btn-primary" id="agCsvBtn">📥 Exporter (CSV)</button>
+          </div>
+          <div id="agSales"><div class="empty">Aucune vente d'agent pour le moment.</div></div>
+          <div id="agPayoutsBox"></div>
+        </div>
+
+        <div class="card">
+          <h2>Ajouter une vente à la main</h2>
+          <p class="ag-sub">Si un agent vous signale une vente qui n'est pas remontée (par exemple par WhatsApp), ajoutez-la ici : le code ticket est vérifié dans votre stock.</p>
+          <div class="ag-form">
+            <select id="agManAgent" aria-label="Agent"></select>
+            <input type="text" id="agManCode" placeholder="Code du ticket" autocomplete="off" inputmode="numeric">
+            <button type="button" class="btn-primary" id="agManBtn">Ajouter</button>
+          </div>
+          <div id="agManMsg" style="font-size:12px;margin-top:8px;min-height:16px;color:#8A1E27;"></div>
         </div>
       </div>
 
@@ -820,6 +1108,12 @@
       wifiModal.classList.remove('show');
       stopTicketScan();
     });
+    // Utilisé par l'espace agent commercial : ouvre directement l'onglet voulu
+    window.__openWifiModal = function(name){
+      wifiBtn.click();
+      if(name === 'scan') tabs.scan.btn.click();
+      else if(name === 'code') tabs.code.btn.click();
+    };
 
     // ---- Envoi du code au portail captif MikroTik ----
     // Réutilise le mécanisme déjà en place dans l'app (HOTSPOT_LOGIN_URL,
@@ -841,6 +1135,7 @@
     function connectWithTicketCode(raw){
       const code = parseTicketPayload(raw);
       if(!code) return;
+      try{ if(window.__agentOnTicketConnect) window.__agentOnTicketConnect(code); }catch(e){}
       const form = document.getElementById('hotspotLoginForm');
       form.action = HOTSPOT_LOGIN_URL;
       form.username.value = code;
@@ -1167,6 +1462,7 @@
     '#admin-import': 'page-import',
     '#admin-stock': 'page-stock',
     '#admin-historique': 'page-historique',
+    '#admin-agents': 'page-agents',
     '#admin-corbeille': 'page-corbeille'
   };
 
@@ -1306,14 +1602,20 @@
       const { collection, addDoc, doc, onSnapshot, serverTimestamp } = window.__fb;
       const db = window.__db;
 
+      // La connexion anonyme Firebase doit être prête (règles de sécurité)
+      if(window.__authReady){ await Promise.race([window.__authReady, new Promise(r => setTimeout(r, 8000))]); }
       const orderRef = await addDoc(collection(db, "orders"), {
         phone,
         forfaitId: forfait.id,
         forfaitLabel: forfait.label,
         montant: forfait.prix,
         statut: "attente",
-        createdAt: serverTimestamp()
+        createdAt: serverTimestamp(),
+        uid: (window.__authUid ? window.__authUid() : null),
+        // Si un agent commercial est identifié sur ce téléphone, la commande lui est attribuée
+        ...(window.__agentOrderFields ? await window.__agentOrderFields() : {})
       });
+      try{ if(window.__agentAfterOrder) window.__agentAfterOrder(); }catch(e){}
 
       waitMsg.classList.add('show');
       submitBtn.style.display = "none";
@@ -1532,15 +1834,31 @@
     });
   }
 
-  window.checkPassword = function(){
-    const val = document.getElementById('pwInput').value;
-    if(val === ADMIN_PASSWORD){
-      document.getElementById('lockScreen').style.display = 'none';
-      document.getElementById('app').style.display = 'block';
-      showAdminPage(location.hash);
-      bootAdmin();
-    } else {
-      document.getElementById('pwErr').style.display = 'block';
+  function unlockAdmin(){
+    document.getElementById('lockScreen').style.display = 'none';
+    document.getElementById('app').style.display = 'block';
+    showAdminPage(location.hash);
+    bootAdmin();
+  }
+  window.__unlockAdmin = unlockAdmin;
+  window.checkPassword = async function(){
+    const input = document.getElementById('pwInput');
+    const err = document.getElementById('pwErr');
+    err.style.display = 'none';
+    if(!input.value){ err.textContent = 'Entrez le mot de passe.'; err.style.display = 'block'; return; }
+    try{
+      if(!window.__adminLogin) throw { code: 'app/not-ready' };
+      await window.__adminLogin(input.value);
+      input.value = '';
+      unlockAdmin();
+    }catch(e){
+      const c = (e && e.code) || '';
+      err.textContent =
+        c === 'auth/network-request-failed' ? 'Connexion impossible : vérifiez internet.' :
+        c === 'auth/too-many-requests' ? 'Trop d\'essais. Patientez quelques minutes.' :
+        c === 'app/not-ready' ? 'Connexion indisponible : rechargez la page.' :
+        'Mot de passe incorrect.';
+      err.style.display = 'block';
     }
   };
   window.togglePw = function(){
@@ -1632,6 +1950,7 @@
         row.innerHTML = `
           <div class="order-info">
             <b>${o.phone}</b> — ${o.forfaitLabel} (${o.montant} FCFA)
+            ${o.agentNom ? `<div class="meta" style="color:#0A6B4A;font-weight:600;">🤝 Agent : ${window.SHAMAN_AGENT.esc(o.agentNom)} (${window.SHAMAN_AGENT.esc(o.agentCode || '')})</div>` : ''}
             <div class="meta">Reçu le ${heure} · Vérifiez ce paiement dans votre appli Wave avant de valider.</div>
           </div>
           <div class="order-actions">
@@ -2023,6 +2342,7 @@
         ['Montant', `${o.montant || 0} FCFA`],
         ['Statut', statutLabel[o.statut] || o.statut],
         ['Code ticket', o.ticketCode || '—'],
+        ...(o.agentNom ? [['Agent commercial', window.SHAMAN_AGENT.esc(o.agentNom) + ' (' + window.SHAMAN_AGENT.esc(o.agentCode || '') + ')']] : []),
         ['', ''],
         ['Achat effectué le', fmt(o.createdAt) || '—'],
         ['Paiement validé le', fmt(o.validatedAt) || '—'],
@@ -2037,12 +2357,946 @@
       `;
       ouvrirEcran('invoice');
     };
+
+    // Espace "Agents commerciaux" (script séparé en bas de page)
+    try{ if(window.__agentsAdminInit) window.__agentsAdminInit(); }catch(e){ console.error(e); }
   }
 
   // Si on arrive directement sur #admin et que Firebase est déjà prêt
   if(location.hash === '#admin'){
     // rien de plus à faire ici : bootAdmin() est appelé après saisie du mot de passe
   }
+</script>
+
+<!-- ============================================================
+  AGENT COMMERCIAL — côté boutique
+  La validation de l'agent se passe sur le téléphone, SANS internet :
+   - code généré automatiquement  → contrôle de la clé intégrée au code ;
+   - code choisi par l'administrateur → annuaire mémorisé sur le téléphone
+     (chargé dès que Firebase répond, ce qui marche via le Walled Garden).
+  Les ventes sont gardées sur l'appareil puis envoyées à l'administrateur
+  dès que la connexion le permet. Ce bloc est indépendant : s'il échouait,
+  la boutique continue de fonctionner normalement.
+============================================================= -->
+<script>
+(function(){
+  'use strict';
+  const A = window.SHAMAN_AGENT;
+  const box = document.getElementById('agentBox');
+  if(!A || !box) return;
+
+  const $ = id => document.getElementById(id);
+  const K_SESSION = 'shaman_agent_session';
+  const K_LOG = 'shaman_agent_log';
+  const K_ERASE = 'shaman_agent_erase';
+  const K_DIR = 'shaman_agent_dir';          // annuaire : empreintes des agents + codes désactivés
+  const K_KNOWN = 'shaman_agent_known';      // paires déjà validées sur cet appareil
+  const SESSION_MS = 12 * 60 * 60 * 1000;    // une session agent dure 12 h au maximum
+  const DIR_REFRESH_MS = 30 * 60 * 1000;
+  const ADMIN_WA = '2250748935686';          // WhatsApp de secours : 07 48 93 56 86
+
+  // --- stockage local (avec repli mémoire si le navigateur le bloque) ---
+  const mem = {};
+  let lsOk = true;
+  try{ localStorage.setItem('__shaman_t', '1'); localStorage.removeItem('__shaman_t'); }catch(e){ lsOk = false; }
+  function lsGet(k){ if(lsOk){ try{ return localStorage.getItem(k); }catch(e){} } return mem[k] == null ? null : mem[k]; }
+  function lsSet(k, v){ if(lsOk){ try{ localStorage.setItem(k, v); return; }catch(e){} } mem[k] = v; }
+  function lsDel(k){ delete mem[k]; if(lsOk){ try{ localStorage.removeItem(k); }catch(e){} } }
+  function lsJson(k, def){ try{ const v = JSON.parse(lsGet(k)); return v == null ? def : v; }catch(e){ return def; } }
+  function withTimeout(p, ms){
+    return new Promise((res, rej)=>{
+      const t = setTimeout(()=> rej(new Error('timeout')), ms);
+      Promise.resolve(p).then(v=>{ clearTimeout(t); res(v); }, e=>{ clearTimeout(t); rej(e); });
+    });
+  }
+  // Attend la connexion anonyme Firebase (nécessaire pour lire/écrire avec les règles de sécurité)
+  function whenAuth(){ return window.__authReady ? window.__authReady : Promise.resolve(null); }
+  function fbOk(){ return !!(window.__fb && window.__db); }
+
+  // --- éléments ---
+  const toggle = $('agentToggle'), led = $('agentLed'), stateTxt = $('agentState');
+  const panel = $('agentPanel'), loginPane = $('agentLogin'), activePane = $('agentActive');
+  const nomEl = $('agentNom'), codeEl = $('agentCode'), validateBtn = $('agentValidate');
+  const msgEl = $('agentMsg'), whoEl = $('agentWho'), whoSub = $('agentWhoSub');
+  const eraseChk = $('agentErase'), syncBox = $('agentSync');
+
+  // --- état ---
+  let session = null;
+  let fails = 0, lockedUntil = 0, validating = false;
+
+  function setLed(kind){ led.className = 'led' + (kind ? ' ' + kind : ''); }
+  function say(text, kind){ msgEl.textContent = text || ''; msgEl.className = text ? (kind || 'info') : ''; }
+  function saveSession(){ lsSet(K_SESSION, JSON.stringify(session)); }
+  function cleanName(s){ return String(s || '').replace(/\s+/g, ' ').trim().toUpperCase(); }
+
+  // --- annuaire (mémorisé sur le téléphone) ---
+  function dirData(){
+    const d = lsJson(K_DIR, null);
+    return d && typeof d === 'object' ? { creds: d.creds || [], revoked: d.revoked || [], at: d.at || 0 } : { creds: [], revoked: [], at: 0 };
+  }
+  function isRevoked(code){ return dirData().revoked.indexOf(code) >= 0; }
+  function remember(h){
+    const k = lsJson(K_KNOWN, []);
+    if(k.indexOf(h) < 0){ k.push(h); lsSet(K_KNOWN, JSON.stringify(k.slice(-20))); }
+  }
+  // Vrai si le couple (nom, code) est reconnu sans demander à personne
+  function knows(nom, code){
+    if(A.verify(nom, code)) return true;                       // code généré : clé intégrée
+    const h = A.credHash(nom, code);
+    return dirData().creds.indexOf(h) >= 0 || lsJson(K_KNOWN, []).indexOf(h) >= 0;
+  }
+  // Télécharge l'annuaire (1 lecture). Retourne true si Firebase a répondu.
+  async function fetchDirectory(force){
+    if(!fbOk()) return false;
+    if(!force && Date.now() - dirData().at < DIR_REFRESH_MS) return true;
+    try{
+      await withTimeout(whenAuth(), 6000);
+      const { doc, getDoc } = window.__fb;
+      const snap = await withTimeout(getDoc(doc(window.__db, 'meta', 'agent_dir')), 6000);
+      const data = snap.exists() ? snap.data() : {};
+      lsSet(K_DIR, JSON.stringify({ creds: data.creds || [], revoked: data.revoked || [], at: Date.now() }));
+      if(session && isRevoked(session.code)) endSession('Ce code agent a été désactivé ou remplacé. Contactez l\'administrateur.', 'bad');
+      return true;
+    }catch(e){ return false; }
+  }
+
+  function loadSession(){
+    const s = lsJson(K_SESSION, null);
+    if(!s || !s.nom || !s.code) return null;
+    if(Date.now() > s.until) { lsDel(K_SESSION); return null; }
+    if(isRevoked(s.code) || !knows(s.nom, s.code)){ lsDel(K_SESSION); return null; }
+    return s;
+  }
+  function stillValid(){
+    if(!session) return false;
+    if(Date.now() > session.until){ endSession("Session agent expirée : identifiez-vous de nouveau.", 'info'); return false; }
+    return true;
+  }
+
+  function render(){
+    if(session){
+      loginPane.hidden = true; activePane.hidden = false;
+      setLed('ok');
+      whoEl.textContent = session.nom;
+      whoSub.textContent = session.online ? 'Agent reconnu et confirmé en ligne' : 'Agent reconnu (validé sans internet)';
+      stateTxt.textContent = session.nom + ' — session active';
+    } else {
+      loginPane.hidden = false; activePane.hidden = true;
+      setLed('');
+      stateTxt.textContent = 'Identifiez-vous';
+    }
+  }
+  function openPanel(open){
+    panel.hidden = !open;
+    toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+    if(typeof updateBlueHeight === 'function') { try{ updateBlueHeight(); }catch(e){} }
+  }
+  toggle.addEventListener('click', ()=> openPanel(panel.hidden));
+
+  function endSession(text, kind){
+    session = null; lsDel(K_SESSION);
+    nomEl.value = ''; codeEl.value = '';
+    render();
+    say(text || '', kind || 'info');
+    if(kind === 'bad') setLed('bad');
+  }
+
+  // --- saisie du code : majuscules, lettres et chiffres seulement ---
+  codeEl.addEventListener('input', ()=>{ codeEl.value = A.normCode(codeEl.value).slice(0, 12); });
+  [nomEl, codeEl].forEach(el => el.addEventListener('keydown', e => { if(e.key === 'Enter') validate(); }));
+
+  // --- validation : locale d'abord, annuaire en renfort ---
+  async function validate(){
+    if(validating) return;
+    say('');
+    const now = Date.now();
+    if(now < lockedUntil){
+      setLed('bad'); say('Trop d\'essais. Patientez ' + Math.ceil((lockedUntil - now) / 1000) + ' secondes.', 'bad'); return;
+    }
+    const nom = cleanName(nomEl.value), code = A.normCode(codeEl.value);
+    if(!nom || !code){ setLed('bad'); say('Entrez votre nom et votre code agent.', 'bad'); return; }
+    if(code.length < 6){ setLed('bad'); say('Ce code est trop court : un code agent fait au moins 6 caractères.', 'bad'); return; }
+    validating = true;
+    try{
+      let known = knows(nom, code), fresh = false;
+      if(!known){
+        // Code inconnu de ce téléphone : on met à jour l'annuaire (si Firebase répond) puis on re-vérifie
+        setLed('checking'); say('Vérification…', 'info');
+        fresh = await fetchDirectory(true);
+        known = knows(nom, code);
+      }
+      if(!known){
+        fails++;
+        if(fails >= 5){ fails = 0; lockedUntil = Date.now() + 30000; }
+        setLed('bad');
+        say(fresh
+          ? 'Nom ou code incorrect. Vérifiez les deux et réessayez.'
+          : 'Code non reconnu. Vérifiez le nom et le code. S\'il vient d\'être créé ou modifié, connectez ce téléphone au Wi-Fi SHAMAN puis réessayez.', 'bad');
+        return;
+      }
+      if(isRevoked(code)){ setLed('bad'); say('Ce code agent a été désactivé ou remplacé. Contactez l\'administrateur.', 'bad'); return; }
+      fails = 0;
+      remember(A.credHash(nom, code));
+      const t = Date.now();
+      session = { nom, code, at: t, until: t + SESSION_MS, online: false };
+      saveSession(); render();
+      say('✅ Agent reconnu. Vous pouvez connecter vos clients.', 'ok');
+      confirmOnline(session, 6000);
+    } finally { validating = false; }
+  }
+  validateBtn.addEventListener('click', validate);
+
+  // --- confirmation en ligne (facultative) : si Firebase répond, on vérifie que l'agent existe et est actif.
+  //     Si rien ne répond (pas d'internet), le voyant reste vert grâce à la vérification locale. ---
+  async function confirmOnline(s, ms){
+    if(!fbOk()) return;
+    try{
+      await withTimeout(whenAuth(), ms || 6000);
+      const { doc, getDoc } = window.__fb;
+      const snap = await withTimeout(getDoc(doc(window.__db, 'agent_codes', s.code)), ms || 6000);
+      if(!session || session.code !== s.code) return;
+      if(!snap.exists()){ endSession("Ce code agent n'est pas (ou plus) enregistré chez l'administrateur.", 'bad'); return; }
+      const d = snap.data();
+      if(d.nomNorm && d.nomNorm !== A.norm(s.nom)){ endSession('Nom ou code incorrect.', 'bad'); return; }
+      if(d.actif === false){ endSession('Ce code agent a été désactivé ou remplacé. Contactez l\'administrateur.', 'bad'); return; }
+      session.online = true; saveSession(); render();
+    }catch(e){ /* pas de réponse : on garde le vert obtenu hors-ligne */ }
+  }
+
+  // --- journal des ventes de l'appareil (file d'attente d'envoi) ---
+  function loadLog(){
+    const log = lsJson(K_LOG, []);
+    const limit = Date.now() - 90 * 86400000;
+    return Array.isArray(log) ? log.filter(e => !(e.synced && e.t < limit)) : [];
+  }
+  function saveLog(log){ lsSet(K_LOG, JSON.stringify(log.slice(-300))); }
+  function patchEntry(id, fn){
+    const log = loadLog(); const m = log.find(x => x.id === id);
+    if(m){ fn(m); saveLog(log); }
+  }
+
+  let flushing = false;
+  async function flush(){
+    if(flushing) return;
+    if(!loadLog().some(e => !e.synced && !e.refused)) return;
+    if(!fbOk()) return;
+    flushing = true;
+    let sent = 0;
+    try{
+      await withTimeout(whenAuth(), 8000);
+      const { doc, setDoc, serverTimestamp } = window.__fb;
+      const uid = window.__authUid ? window.__authUid() : null;
+      if(window.__authReady && !uid){ flushing = false; return; }   // pas encore connecté : on réessaie
+      const pend = loadLog().filter(e => !e.synced && !e.refused);
+      for(const e of pend){
+        // Identifiant fixe (agent + ticket) : si l'envoi est répété, la vente n'est jamais comptée deux fois.
+        const data = { agentNom: e.agentNom, agentCode: e.agentCode, ticketCode: e.ticketCode,
+                       clientTime: e.t, mode: 'physique', syncedAt: serverTimestamp() };
+        if(uid) data.uid = uid;
+        try{
+          await withTimeout(setDoc(doc(window.__db, 'agent_sales', e.id), data, { merge: true }), 8000);
+          patchEntry(e.id, m => { m.synced = true; delete m.deniedAt; });
+          sent++;
+        }catch(err){
+          if(err && err.code === 'permission-denied'){
+            // refus du serveur (agent désactivé / code remplacé…) : on garde la trace, on arrête d'insister après 1 h
+            patchEntry(e.id, m => {
+              m.deniedAt = m.deniedAt || Date.now();
+              if(Date.now() - m.deniedAt > 3600000) m.refused = true;
+            });
+            continue;
+          }
+          throw err;                                   // réseau indisponible : on réessaiera plus tard
+        }
+      }
+    }catch(err){ /* connexion indisponible : on réessaiera tout seul */ }
+    flushing = false;
+    renderSync(sent > 0);
+  }
+
+  function pendingText(list){
+    const lines = ['VENTE AGENT — WI-FI 6 SHAMAN'];
+    list.forEach(e => {
+      lines.push(e.agentNom + ' (' + e.agentCode + ') — ticket ' + e.ticketCode + ' — ' +
+        new Date(e.t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }));
+    });
+    return lines.join('\n');
+  }
+  let flashTimer = null;
+  function renderSync(flash){
+    const log = loadLog();
+    const pend = log.filter(e => !e.synced && !e.refused);
+    const refused = log.filter(e => !e.synced && e.refused);
+    if(refused.length){
+      syncBox.hidden = false; syncBox.className = 'agent-sync wait';
+      syncBox.innerHTML = '⚠️ ' + refused.length + ' vente' + (refused.length > 1 ? 's' : '') +
+        " refusée" + (refused.length > 1 ? 's' : '') + " par le serveur (code agent désactivé ou remplacé ?). Prévenez l'administrateur." +
+        '<div class="agent-sync-actions"><button type="button" data-sync="wa-refused">Prévenir par WhatsApp</button>' +
+        '<button type="button" data-sync="retry">Réessayer</button></div>';
+    } else if(pend.length){
+      syncBox.hidden = false; syncBox.className = 'agent-sync wait';
+      syncBox.innerHTML = '⏳ ' + pend.length + ' vente' + (pend.length > 1 ? 's' : '') +
+        " à envoyer à l'administrateur. L'envoi est automatique dès que la connexion le permet." +
+        '<div class="agent-sync-actions"><button type="button" data-sync="now">Envoyer maintenant</button>' +
+        '<button type="button" data-sync="wa">Prévenir par WhatsApp</button></div>';
+    } else if(flash){
+      syncBox.hidden = false; syncBox.className = 'agent-sync ok';
+      syncBox.textContent = "✅ Vente envoyée à l'administrateur.";
+      clearTimeout(flashTimer); flashTimer = setTimeout(()=>{ syncBox.hidden = true; }, 8000);
+    } else {
+      syncBox.hidden = true;
+    }
+    if(typeof updateBlueHeight === 'function') { try{ updateBlueHeight(); }catch(e){} }
+  }
+  syncBox.addEventListener('click', e => {
+    const b = e.target.closest('button[data-sync]'); if(!b) return;
+    const kind = b.dataset.sync;
+    if(kind === 'now'){ b.textContent = 'Envoi...'; flush(); }
+    if(kind === 'retry'){
+      const log = loadLog(); log.forEach(x => { if(!x.synced){ delete x.refused; delete x.deniedAt; } }); saveLog(log);
+      renderSync(); flush();
+    }
+    if(kind === 'wa' || kind === 'wa-refused'){
+      const list = loadLog().filter(x => !x.synced && (kind === 'wa' ? !x.refused : x.refused));
+      window.location.href = 'whatsapp://send?phone=' + ADMIN_WA + '&text=' + encodeURIComponent(pendingText(list));
+    }
+  });
+
+  // ============================================================
+  //  Points d'accroche utilisés par la boutique existante
+  // ============================================================
+
+  // 1) Achat en ligne : la commande porte l'identité de l'agent (l'admin valide comme d'habitude).
+  //    Juste avant la commande, on vérifie une dernière fois que l'agent existe (si Firebase répond).
+  window.__agentOrderFields = async function(){
+    try{
+      if(!stillValid()) return {};
+      if(!session.online) await confirmOnline(session, 4000);
+      if(!session) return {};                          // session refusée par le serveur : commande sans agent
+      return { hasAgent: true, agentNom: session.nom, agentCode: session.code, agentAt: Date.now() };
+    }catch(e){ return {}; }
+  };
+  window.__agentAfterOrder = function(){
+    try{
+      if(session && eraseChk.checked) endSession('Vente enregistrée pour ' + session.nom + '. Session agent terminée.', 'ok');
+    }catch(e){}
+  };
+
+  // 2) Vente physique : le ticket du client est tapé ou scanné pendant la session agent
+  window.__agentOnTicketConnect = function(ticketCode){
+    try{
+      if(!stillValid()) return;
+      const code = String(ticketCode || '').trim();
+      if(!code) return;
+      const id = (session.code + '_' + code).replace(/[^A-Za-z0-9_-]/g, '');
+      const log = loadLog();
+      if(!log.some(e => e.id === id)){
+        log.push({ id, ticketCode: code, agentNom: session.nom, agentCode: session.code, t: Date.now(), synced: false });
+        saveLog(log);
+      }
+      const note = ' ✅ Vente enregistrée pour ' + session.nom + '.';
+      ['ticketCodeStatus', 'ticketScanStatus'].forEach(i => { const el = $(i); if(el) el.textContent = (el.textContent || '') + note; });
+      renderSync();
+      flush();
+      if(eraseChk.checked) endSession('Vente enregistrée. Session agent terminée.', 'ok');
+    }catch(e){}
+  };
+
+  // --- boutons "Scanner" / "Taper le code" : ouvrent la fenêtre de connexion existante ---
+  $('agentScan').addEventListener('click', ()=>{ if(stillValid() && window.__openWifiModal) window.__openWifiModal('scan'); });
+  $('agentType').addEventListener('click', ()=>{ if(stillValid() && window.__openWifiModal) window.__openWifiModal('code'); });
+  $('agentLogout').addEventListener('click', ()=> endSession('Session agent terminée.', 'info'));
+
+  eraseChk.checked = lsGet(K_ERASE) !== '0';       // coché par défaut
+  eraseChk.addEventListener('change', ()=> lsSet(K_ERASE, eraseChk.checked ? '1' : '0'));
+
+  // --- démarrage ---
+  session = loadSession();
+  render();
+  if(session){ openPanel(true); }
+  renderSync();
+  function boot(){
+    if(!fbOk()) return;
+    whenAuth().then(()=>{ fetchDirectory(false); flush(); if(session && !session.online) confirmOnline(session, 6000); });
+  }
+  window.addEventListener('firebase-ready', boot);
+  window.addEventListener('online', ()=>{ flush(); fetchDirectory(false); });
+  document.addEventListener('visibilitychange', ()=>{ if(!document.hidden) flush(); });
+  setInterval(()=>{ flush(); if(session) stillValid(); }, 15000);
+  boot();
+})();
+</script>
+
+<!-- ============================================================
+  AGENTS COMMERCIAUX — espace administrateur
+  Démarré une seule fois, après la connexion administrateur (Firebase).
+  Les gains sont calculés à partir de :
+   - commandes en ligne validées par vous qui portent un agent ("orders"),
+   - ventes physiques déclarées par les agents ("agent_sales"),
+   - versements déjà faits ("agent_payouts").
+  Chaque agent a SON pourcentage de gains (modifiable sur sa fiche) : chaque vente
+  garde le pourcentage en vigueur pour cet agent le jour où elle a été faite.
+  Les commissions sont conservées même si les tickets sont supprimés du stock.
+============================================================= -->
+<script>
+window.__agentsAdminInit = function(){
+  if(window.__agentsAdminStarted) return;
+  window.__agentsAdminStarted = true;
+
+  const A = window.SHAMAN_AGENT, db = window.__db, fb = window.__fb;
+  if(!A || !db || !fb) return;
+  const { collection, doc, addDoc, setDoc, updateDoc, deleteDoc, getDocs, onSnapshot, query, where, serverTimestamp } = fb;
+  const $ = id => document.getElementById(id);
+  const esc = A.esc, canon = A.normCode;
+  const fcfa = n => (Number(n) || 0).toLocaleString('fr-FR') + ' FCFA';
+  const ms = t => (t && typeof t.toMillis === 'function') ? t.toMillis() : (typeof t === 'number' ? t : 0);
+  const fmtDate = t => t ? new Date(t).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—';
+  const fmtDay = t => t ? new Date(t).toLocaleDateString('fr-FR') : '—';
+  const showErr = m => { if(window.__showAdminError) window.__showAdminError(m); else console.error(m); };
+  const shopUrl = location.origin + location.pathname;
+  const GRACE_MS = 7 * 86400000;     // un ancien code reste accepté 7 jours pour les ventes déjà faites
+
+  const st = { agents: [], salesDocs: [], payouts: [], orders: [], codesDocs: {}, dirDoc: null, settings: null, periode: '30j' };
+  const loaded = { agents: false, codes: false, dir: false };
+
+  // ---------------- pourcentage de gains : propre à chaque agent, avec historique ----------------
+  function agentHistory(a){
+    const h = (a && Array.isArray(a.tauxHistory)) ? a.tauxHistory.filter(e => e && !isNaN(Number(e.taux))).map(e => ({ from: Number(e.from) || 0, taux: Number(e.taux) })) : [];
+    if(!h.length) h.push({ from: 0, taux: (a && a.taux != null && !isNaN(Number(a.taux))) ? Number(a.taux) : A.DEFAULT_TAUX });
+    h.sort((x, y) => x.from - y.from);
+    return h;
+  }
+  function rateAt(a, at){
+    const h = agentHistory(a); let t = h[0].taux;
+    h.forEach(e => { if(e.from <= at) t = e.taux; });
+    return t;
+  }
+  const tauxActuel = a => { const h = agentHistory(a); return h[h.length - 1].taux; };
+  const commissionAt = (a, montant, at) => A.commission(montant, rateAt(a, at));
+  const tauxDefaut = () => (st.settings && st.settings.tauxDefaut != null && !isNaN(Number(st.settings.tauxDefaut))) ? Number(st.settings.tauxDefaut) : A.DEFAULT_TAUX;
+  const fmtTaux = t => String(t).replace('.', ',') + ' %';
+  const parseTaux = txt => {
+    const raw = String(txt == null ? '' : txt).replace('%', '').replace(',', '.').trim();
+    if(!raw) return NaN;
+    const v = Math.round(Number(raw) * 100) / 100;
+    return (isNaN(v) || v < 0 || v > 100) ? NaN : v;
+  };
+
+  // ---------------- écoutes Firestore ----------------
+  const onErr = nom => err => showErr(nom + ' : ' + err.message + " — vérifiez que les règles Firestore ont été mises à jour (voir README, « Protection »).");
+  onSnapshot(collection(db, 'agents'), snap => {
+    st.agents = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    loaded.agents = true; renderAll(); scheduleSync();
+  }, onErr('Agents'));
+  onSnapshot(collection(db, 'agent_codes'), snap => {
+    st.codesDocs = {}; snap.docs.forEach(d => { st.codesDocs[d.id] = d.data(); });
+    loaded.codes = true; scheduleSync();
+  }, onErr('Codes des agents'));
+  onSnapshot(doc(db, 'meta', 'agent_dir'), snap => {
+    st.dirDoc = snap.exists() ? snap.data() : null;
+    loaded.dir = true; scheduleSync();
+  }, onErr('Annuaire des agents'));
+  onSnapshot(doc(db, 'meta', 'settings'), snap => {
+    st.settings = snap.exists() ? snap.data() : null;
+    renderAll();
+  }, onErr('Réglages'));
+  onSnapshot(collection(db, 'agent_sales'), snap => {
+    st.salesDocs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+    reconcile();
+  }, onErr('Ventes des agents'));
+  onSnapshot(collection(db, 'agent_payouts'), snap => {
+    st.payouts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, onErr('Versements'));
+  onSnapshot(query(collection(db, 'orders'), where('hasAgent', '==', true)), snap => {
+    st.orders = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    renderAll();
+  }, onErr('Commandes des agents'));
+
+  // ---------------- correspondance code -> agent (anciens codes compris) ----------------
+  function agentsByCode(){
+    const m = new Map();
+    st.agents.forEach(a => {
+      (a.codesAnciens || []).forEach(o => { if(o && o.code) m.set(canon(o.code), a); });
+    });
+    st.agents.forEach(a => { if(a.code) m.set(canon(a.code), a); });
+    return m;
+  }
+
+  // ---------------- calcul des ventes ----------------
+  function computeVentes(){
+    const byCode = agentsByCode();
+    const ov = {};
+    st.salesDocs.forEach(s => { if(s.id.indexOf('o_') === 0) ov[s.id] = s; });
+    const list = [];
+
+    function push(v){
+      v.agent = byCode.get(canon(v.agentCode)) || null;
+      v.commission = 0; v.counted = false;
+      if(v.statut === 'confirmee'){
+        if(!v.agent){
+          v.statut = 'anomalie'; v.derive = true;
+          v.motif = "Agent inconnu : ce code agent n'existe pas dans votre liste.";
+        } else if(v.agent.actif === false && v.agent.desactiveAt && v.at > v.agent.desactiveAt){
+          v.statut = 'anomalie'; v.derive = true;
+          v.motif = 'Vente faite après la désactivation de cet agent.';
+        }
+      }
+      if(v.statut === 'confirmee'){ v.counted = true; v.commission = commissionAt(v.agent, v.montant, v.at); v.taux = rateAt(v.agent, v.at); }
+      list.push(v);
+    }
+
+    st.orders.forEach(o => {
+      if(o.statut !== 'validee') return;
+      const o2 = ov['o_' + o.id];
+      push({
+        key: 'o_' + o.id, source: 'en_ligne', agentCode: o.agentCode, agentNom: o.agentNom,
+        forfaitLabel: o.forfaitLabel, montant: o.montant, ticketCode: o.ticketCode, client: o.phone,
+        at: ms(o.validatedAt) || ms(o.createdAt) || ms(o.agentAt),
+        statut: (o2 && o2.statut === 'rejetee') ? 'rejetee' : 'confirmee', motif: ''
+      });
+    });
+    st.salesDocs.forEach(s => {
+      if(s.id.indexOf('o_') === 0) return;
+      push({
+        key: s.id, source: 'physique', agentCode: s.agentCode, agentNom: s.agentNom,
+        forfaitLabel: s.forfaitLabel || '', montant: Number(s.montant) || 0, ticketCode: s.ticketCode, client: '',
+        at: Number(s.clientTime) || ms(s.syncedAt), statut: s.statut || 'a_traiter', motif: s.motif || ''
+      });
+    });
+    list.sort((a, b) => b.at - a.at);
+    return list;
+  }
+
+  function sinceMs(){
+    const now = new Date();
+    if(st.periode === 'today'){ now.setHours(0, 0, 0, 0); return now.getTime(); }
+    if(st.periode === '7j') return Date.now() - 7 * 86400000;
+    if(st.periode === '30j') return Date.now() - 30 * 86400000;
+    return 0;
+  }
+
+  // ---------------- affichage ----------------
+  function renderRate(){
+    $('agIntro').textContent = "Chaque agent a son propre pourcentage de gains, réglable sur sa fiche. Les achats en ligne restent validés par vous, comme d'habitude : ils sont comptés pour l'agent une fois validés.";
+    const inp = $('agNewTaux');
+    if(inp && inp.dataset.touched !== '1') inp.value = String(tauxDefaut()).replace('.', ',');
+  }
+
+  function renderAll(){
+    renderRate();
+    const ventes = computeVentes();
+    const since = sinceMs();
+    const inPeriod = ventes.filter(v => v.at >= since);
+
+    // KPI
+    const counted = inPeriod.filter(v => v.counted);
+    const ca = counted.reduce((s, v) => s + (Number(v.montant) || 0), 0);
+    const com = counted.reduce((s, v) => s + v.commission, 0);
+    const allCom = ventes.filter(v => v.counted).reduce((s, v) => s + v.commission, 0);
+    const allPaid = st.payouts.reduce((s, p) => s + (Number(p.montant) || 0), 0);
+    const todo = ventes.filter(v => v.statut === 'anomalie' || v.statut === 'a_traiter').length;
+    $('agKpis').innerHTML = `
+      <div class="stat"><div class="n">${counted.length}</div><div class="l">Ventes</div></div>
+      <div class="stat"><div class="n">${(ca).toLocaleString('fr-FR')}</div><div class="l">Chiffre d'affaires (FCFA)</div></div>
+      <div class="stat"><div class="n">${com.toLocaleString('fr-FR')}</div><div class="l">Commissions (FCFA)</div></div>
+      <div class="stat"><div class="n">${(allCom - allPaid).toLocaleString('fr-FR')}</div><div class="l">Reste à payer, total (FCFA)</div></div>`;
+
+    // pastille du menu
+    const badge = $('agBadge');
+    if(badge){ badge.hidden = !todo; badge.textContent = todo; }
+
+    // statistiques par agent (clé = identifiant de l'agent)
+    const byCode = agentsByCode();
+    const stats = {};
+    ventes.forEach(v => {
+      if(!v.agent) return;
+      const s = stats[v.agent.id] || (stats[v.agent.id] = { nP: 0, caP: 0, comP: 0, comAll: 0, nAll: 0 });
+      if(v.counted){ s.nAll++; s.comAll += v.commission; if(v.at >= since){ s.nP++; s.caP += Number(v.montant) || 0; s.comP += v.commission; } }
+    });
+    const paid = {}, payoutCount = {};
+    st.payouts.forEach(p => {
+      const a = (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode));
+      if(!a) return;
+      paid[a.id] = (paid[a.id] || 0) + (Number(p.montant) || 0); payoutCount[a.id] = (payoutCount[a.id] || 0) + 1;
+    });
+
+    const agents = st.agents.slice().sort((a, b) => (b.actif !== false) - (a.actif !== false) || String(a.nom).localeCompare(String(b.nom)));
+    $('agList').innerHTML = agents.map(a => {
+      const s = stats[a.id] || { nP: 0, caP: 0, comP: 0, comAll: 0, nAll: 0 };
+      const p = paid[a.id] || 0, due = s.comAll - p, actif = a.actif !== false;
+      const canDelete = !s.nAll && !payoutCount[a.id] && !ventes.some(v => v.agent && v.agent.id === a.id);
+      const old = (a.codesAnciens || []).map(o => o.code).filter(Boolean);
+      return `
+      <div class="ag-agent ${actif ? '' : 'off'}">
+        <div class="ag-head">
+          <span class="ag-name">${esc(a.nom)}</span>
+          <span class="ag-pill ${actif ? 'on' : 'off'}">${actif ? 'Actif' : 'Désactivé'}</span>
+        </div>
+        <div class="ag-line">Nom à saisir : <b>${esc(a.nom)}</b> · Code : <span class="ag-code">${esc(a.code)}</span></div>
+        ${old.length ? `<div class="ag-line">Anciens codes (n'ouvrent plus de session) : ${esc(old.join(', '))}</div>` : ''}
+        <div class="ag-line">Pourcentage de gains : <b>${fmtTaux(tauxActuel(a))}</b>${agentHistory(a).length > 1 ? ' <span style="font-size:11.5px;">(historique : ' + agentHistory(a).slice().reverse().slice(0, 5).map(e => (e.from ? 'depuis le ' + fmtDay(e.from) : 'au départ') + ' ' + fmtTaux(e.taux)).join(' · ') + ')</span>' : ''}</div>
+        <div class="ag-line">Période : <b>${s.nP}</b> vente${s.nP > 1 ? 's' : ''} · CA ${fcfa(s.caP)} · commission <b>${fcfa(s.comP)}</b></div>
+        <div class="ag-money">
+          <div><div class="l">Total gagné</div><div class="v">${fcfa(s.comAll)}</div></div>
+          <div><div class="l">Déjà versé</div><div class="v">${fcfa(p)}</div></div>
+          <div class="due"><div class="l">Reste à payer</div><div class="v">${fcfa(due)}</div></div>
+        </div>
+        <div class="ag-btns">
+          ${due > 0 ? `<button type="button" class="pay" data-act="pay" data-id="${esc(a.id)}">💸 Régler ${fcfa(due)}</button>` : ''}
+          <button type="button" data-act="taux" data-id="${esc(a.id)}">% Changer le pourcentage</button>
+          <button type="button" data-act="chcode" data-id="${esc(a.id)}">🔑 Changer le code</button>
+          <button type="button" data-act="detail" data-id="${esc(a.id)}">Détail</button>
+          <button type="button" data-act="share" data-id="${esc(a.id)}">💬 Envoyer l'accès</button>
+          <button type="button" data-act="copy" data-id="${esc(a.id)}">Copier le code</button>
+          <button type="button" data-act="${actif ? 'off' : 'on'}" data-id="${esc(a.id)}">${actif ? 'Désactiver' : 'Réactiver'}</button>
+          ${canDelete ? `<button type="button" class="warn" data-act="del" data-id="${esc(a.id)}">Supprimer</button>` : ''}
+        </div>
+      </div>`;
+    }).join('') || '<div class="empty">Aucun agent pour le moment.</div>';
+
+    // filtres agent (liste déroulante + ajout manuel)
+    const filter = $('agFilter'), cur = filter.value;
+    filter.innerHTML = '<option value="">Tous les agents</option>' + agents.map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
+    filter.value = agents.some(a => a.id === cur) ? cur : '';
+    const man = $('agManAgent'), curM = man.value;
+    man.innerHTML = agents.filter(a => a.actif !== false).map(a => `<option value="${esc(a.id)}">${esc(a.nom)}</option>`).join('');
+    if(curM) man.value = curM;
+
+    // ventes
+    const sel = filter.value;
+    const rows = inPeriod.filter(v => !sel || (v.agent && v.agent.id === sel)).slice(0, 150);
+    const forfaitOpts = FORFAITS.map(f => `<option value="${f.id}">${f.label} — ${f.prix} FCFA</option>`).join('');
+    const statutPill = { confirmee: '', anomalie: '<span class="ag-pill warn">À vérifier</span>', a_traiter: '<span class="ag-pill warn">Vérification…</span>', rejetee: '<span class="ag-pill off">Exclue</span>' };
+    $('agSales').innerHTML = rows.map(v => `
+      <div class="ag-sale ${v.statut === 'rejetee' ? 'rejetee' : ''}">
+        <div><b>${esc(v.agent ? v.agent.nom : v.agentNom)}</b>
+          <span class="ag-pill ${v.source === 'en_ligne' ? 'online' : 'phys'}">${v.source === 'en_ligne' ? 'En ligne' : 'Physique'}</span>
+          ${statutPill[v.statut] || ''}</div>
+        <div class="meta">${fmtDate(v.at)}${v.forfaitLabel ? ' · ' + esc(v.forfaitLabel) : ''}${v.ticketCode ? ' · ticket ' + esc(v.ticketCode) : ''}${v.client ? ' · client ' + esc(v.client) : ''}</div>
+        <div class="amt">${fcfa(v.montant)} → commission <b>${v.counted ? fcfa(v.commission) + ' (' + fmtTaux(v.taux) + ')' : '—'}</b></div>
+        ${v.motif && v.statut !== 'confirmee' ? `<div class="motif">${esc(v.motif)}</div>` : ''}
+        <div class="acts">
+          ${v.source === 'physique' && v.statut === 'anomalie' && !v.derive ? `<select data-sel="${esc(v.key)}" aria-label="Forfait">${forfaitOpts}</select><button type="button" data-act="confirm" data-key="${esc(v.key)}">Confirmer la vente</button>` : ''}
+          ${v.statut === 'rejetee' ? `<button type="button" data-act="restore" data-key="${esc(v.key)}">Rétablir</button>` : `<button type="button" class="warn" data-act="exclude" data-key="${esc(v.key)}">Exclure</button>`}
+        </div>
+      </div>`).join('') || '<div class="empty">Aucune vente d\'agent sur cette période.</div>';
+
+    // versements de l'agent sélectionné
+    const pbox = $('agPayoutsBox');
+    if(sel){
+      const pays = st.payouts.filter(p => { const a = (p.agentId && st.agents.find(x => x.id === p.agentId)) || byCode.get(canon(p.agentCode)); return a && a.id === sel; })
+        .sort((a, b) => (b.atMs || 0) - (a.atMs || 0));
+      pbox.innerHTML = `<h3 style="font-size:13px;color:#0B3D91;margin:18px 0 6px;">Versements faits à cet agent</h3>` +
+        (pays.map(p => `<div class="dash-list-row"><div>${fmtDate(p.atMs || ms(p.at))}<div class="sub">${esc(p.note || '')}</div></div><div><b>${fcfa(p.montant)}</b> <button type="button" class="row-action" data-act="delpay" data-id="${esc(p.id)}">Annuler</button></div></div>`).join('') || '<div class="empty">Aucun versement enregistré.</div>');
+    } else pbox.innerHTML = '';
+
+    window.__agentVentesAffichees = rows;
+  }
+
+  // ---------------- synchronisation de l'index des codes et de l'annuaire ----------------
+  // - agent_codes/{code} : permet aux règles de sécurité de savoir si un code agent est valide.
+  // - meta/agent_dir     : annuaire lu par les téléphones pour reconnaître un agent sans internet.
+  function desiredCodes(){
+    const out = new Map();
+    st.agents.forEach(a => {
+      const nomNorm = a.nomNorm || A.norm(a.nom), off = a.actif === false, offAt = Number(a.desactiveAt) || 1;
+      (a.codesAnciens || []).forEach(o => {
+        const c = canon(o && o.code); if(!c) return;
+        let exp = (Number(o.finMs) || 0) + GRACE_MS;
+        if(off) exp = Math.min(exp, offAt);
+        out.set(c, { agentId: a.id, nomNorm, actif: false, expireMs: exp });
+      });
+    });
+    st.agents.forEach(a => {
+      const c = canon(a.code); if(!c) return;
+      const off = a.actif === false;
+      out.set(c, { agentId: a.id, nomNorm: a.nomNorm || A.norm(a.nom), actif: !off, expireMs: off ? (Number(a.desactiveAt) || 1) : 0 });
+    });
+    return out;
+  }
+
+  let syncTimer = null, syncing = false, syncAgain = false;
+  function scheduleSync(){ clearTimeout(syncTimer); syncTimer = setTimeout(syncIndex, 500); }
+  async function syncIndex(){
+    if(!(loaded.agents && loaded.codes && loaded.dir)) return;
+    if(syncing){ syncAgain = true; return; }
+    syncing = true;
+    try{
+      do{
+        syncAgain = false;
+        // 1) mise à niveau des agents (code officiel, nom normalisé, empreinte pour l'annuaire)
+        for(const a of st.agents){
+          const c = canon(a.code), nn = A.norm(a.nom), patch = {};
+          if(c && a.code !== c) patch.code = c;
+          if(a.nomNorm !== nn) patch.nomNorm = nn;
+          if(c && (!a.cred || patch.code)) patch.cred = A.credHash(a.nom, c);
+          if(Object.keys(patch).length){ await updateDoc(doc(db, 'agents', a.id), patch); Object.assign(a, patch); }
+        }
+        // 2) index des codes (lu par les règles de sécurité)
+        const want = desiredCodes();
+        for(const [code, d] of want){
+          const cur = st.codesDocs[code];
+          if(!cur || cur.agentId !== d.agentId || cur.nomNorm !== d.nomNorm || cur.actif !== d.actif || Number(cur.expireMs) !== Number(d.expireMs))
+            await setDoc(doc(db, 'agent_codes', code), d);
+        }
+        for(const code of Object.keys(st.codesDocs)){ if(!want.has(code)) await deleteDoc(doc(db, 'agent_codes', code)); }
+        // 3) annuaire pour les téléphones
+        const creds = st.agents.filter(a => a.actif !== false && a.cred).map(a => a.cred).sort();
+        const rev = new Set(); want.forEach((d, c) => { if(!d.actif) rev.add(c); });
+        st.agents.filter(a => a.actif !== false).forEach(a => rev.delete(canon(a.code)));
+        const revoked = Array.from(rev).sort();
+        const cur = st.dirDoc || {};
+        if(JSON.stringify(cur.creds || []) !== JSON.stringify(creds) || JSON.stringify(cur.revoked || []) !== JSON.stringify(revoked))
+          await setDoc(doc(db, 'meta', 'agent_dir'), { v: 1, creds, revoked, updatedMs: Date.now() });
+      } while(syncAgain);
+    }catch(e){
+      console.error(e);
+      showErr('Mise à jour des codes agents : ' + e.message);
+    }finally{
+      syncing = false;
+    }
+  }
+
+  // ---------------- résolution automatique des ventes physiques ----------------
+  // Pour chaque vente déclarée par un agent, on retrouve le ticket dans votre stock :
+  // le forfait donne le montant, le ticket passe en "vendu". Cas anormal => "À vérifier".
+  let reconciling = false, again = false;
+  async function reconcile(){
+    if(reconciling){ again = true; return; }
+    reconciling = true;
+    try{
+      do{
+        again = false;
+        const todo = st.salesDocs.filter(s => s.id.indexOf('o_') !== 0 && (!s.statut || s.statut === 'a_traiter'))
+          .sort((a, b) => (Number(a.clientTime) || 0) - (Number(b.clientTime) || 0));
+        const claimed = new Set(st.salesDocs.filter(s => s.statut === 'confirmee' && s.ticketCode).map(s => String(s.ticketCode)));
+        for(const s of todo){
+          const mark = (statut, motif) => updateDoc(doc(db, 'agent_sales', s.id), { statut, motif });
+          const code = String(s.ticketCode || '').trim();
+          if(!code){ await mark('anomalie', 'Code ticket manquant.'); continue; }
+          if(claimed.has(code)){ await mark('anomalie', 'Doublon : ce ticket est déjà attribué à une autre vente.'); continue; }
+          const snap = await getDocs(query(collection(db, 'tickets'), where('code', '==', code)));
+          if(snap.empty){ await mark('anomalie', 'Code introuvable dans votre stock (code erroné, ou ticket déjà supprimé). Choisissez le forfait pour confirmer.'); continue; }
+          const stockDoc = snap.docs.find(d => d.data().statut === 'stock');
+          if(!stockDoc){
+            const t = snap.docs[0].data();
+            await mark('anomalie', 'Ce ticket est déjà ' + (t.statut === 'utilise' ? 'utilisé' : 'vendu') + ' (peut-être acheté en ligne) : il n\'a pas été attribué à cet agent. Choisissez le forfait pour confirmer quand même.');
+            continue;
+          }
+          const t = stockDoc.data();
+          const f = FORFAITS.find(x => x.id === t.forfaitId);
+          if(!f){ await mark('anomalie', 'Forfait du ticket inconnu.'); continue; }
+          await updateDoc(doc(db, 'tickets', stockDoc.id), { statut: 'vendu', vendAt: serverTimestamp(), vendPhone: '', vendAgent: s.agentNom || '', vendAgentCode: s.agentCode || '' });
+          await updateDoc(doc(db, 'agent_sales', s.id), { statut: 'confirmee', forfaitId: f.id, forfaitLabel: f.label, montant: f.prix, ticketDocId: stockDoc.id, resolvedAt: serverTimestamp(), motif: '' });
+          claimed.add(code);
+        }
+      } while(again);
+    }catch(e){
+      console.error(e);
+      showErr('Vérification des ventes des agents : ' + e.message);
+    }finally{
+      reconciling = false;
+    }
+  }
+
+  // ---------------- actions ----------------
+  const ventesByKey = key => computeVentes().find(v => v.key === key);
+  const agentById = id => st.agents.find(a => a.id === id);
+
+  $('agPeriods').addEventListener('click', e => {
+    const b = e.target.closest('.ag-chip'); if(!b) return;
+    st.periode = b.dataset.p;
+    document.querySelectorAll('#agPeriods .ag-chip').forEach(x => x.classList.toggle('on', x === b));
+    renderAll();
+  });
+  $('agFilter').addEventListener('change', renderAll);
+
+  // Créer un agent
+  const codeTaken = (code, except) => st.agents.some(a => (!except || a.id !== except.id) &&
+    (canon(a.code) === code || (a.codesAnciens || []).some(o => canon(o.code) === code)));
+
+  $('agNewBtn').addEventListener('click', async () => {
+    const msg = $('agNewMsg'); msg.textContent = '';
+    const nom = $('agNewNom').value.replace(/\s+/g, ' ').trim();
+    if(!nom){ msg.textContent = "Tapez d'abord le nom de l'agent."; return; }
+    if(!A.norm(nom)){ msg.textContent = 'Le nom doit contenir des lettres ou des chiffres.'; return; }
+    if(st.agents.some(a => A.norm(a.nom) === A.norm(nom)) && !confirm('Un agent « ' + nom + ' » existe déjà. Créer quand même un second agent avec ce nom ?')) return;
+    const taux = parseTaux($('agNewTaux').value);
+    if(isNaN(taux)){ msg.textContent = 'Entrez le pourcentage de gains de cet agent (entre 0 et 100, exemple : 50).'; return; }
+    let code; do{ code = A.makeCode(nom); } while(codeTaken(code));
+    try{
+      await addDoc(collection(db, 'agents'), { nom, nomNorm: A.norm(nom), code, cred: A.credHash(nom, code), actif: true, codesAnciens: [], taux, tauxHistory: [{ from: 0, taux }], createdAt: serverTimestamp(), createdMs: Date.now() });
+      await setDoc(doc(db, 'meta', 'settings'), { tauxDefaut: taux }, { merge: true });   // pré-remplit le prochain agent
+      $('agNewNom').value = '';
+      showAccess('✅ Agent créé (' + fmtTaux(taux) + ' de gains).', nom, code);
+      scheduleSync();
+    }catch(e){ showErr("Impossible de créer l'agent : " + e.message); }
+  });
+
+  function accessMessage(nom, code){
+    return `Bonjour ${nom}, voici vos accès agent commercial WI-FI 6 SHAMAN :\nNom : ${nom}\nCode : ${code}\n\nOuvrez la boutique : ${shopUrl}\nTouchez « Agent commercial », saisissez ce nom et ce code : le voyant devient vert.`;
+  }
+  function openWa(text){ window.open('https://wa.me/?text=' + encodeURIComponent(text), '_blank'); }
+  function showAccess(titre, nom, code){
+    $('agNewResult').innerHTML = `<div class="ag-new">${esc(titre)}<br>Nom à saisir : <b>${esc(nom)}</b><br>Code : <b>${esc(code)}</b><br>
+      <button type="button" class="btn-primary" style="margin-top:8px;" data-act="share-new" data-nom="${esc(nom)}" data-code="${esc(code)}">💬 Envoyer ces accès par WhatsApp</button></div>`;
+    $('agNewResult').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  }
+  $('agNewResult').addEventListener('click', e => {
+    const b = e.target.closest('[data-act="share-new"]'); if(!b) return;
+    openWa(accessMessage(b.dataset.nom, b.dataset.code));
+  });
+
+  // Actions sur la liste des agents
+  $('agList').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-act]'); if(!b) return;
+    const act = b.dataset.act, agent = agentById(b.dataset.id);
+    if(!agent) return;
+    try{
+      if(act === 'copy'){ try{ await navigator.clipboard.writeText(agent.code); b.textContent = 'Copié ✓'; }catch(err){ prompt('Code à copier :', agent.code); } }
+      else if(act === 'share'){ openWa(accessMessage(agent.nom, agent.code)); }
+      else if(act === 'detail'){ $('agFilter').value = agent.id; renderAll(); $('agSalesCard').scrollIntoView({ behavior: 'smooth' }); }
+      else if(act === 'taux'){
+        const cur = tauxActuel(agent);
+        const txt = prompt('Nouveau pourcentage de gains pour ' + agent.nom + '\n(actuellement ' + fmtTaux(cur) + ') :', String(cur).replace('.', ','));
+        if(txt === null) return;
+        const v = parseTaux(txt);
+        if(isNaN(v)){ alert('Entrez un pourcentage entre 0 et 100 (exemple : 40).'); return; }
+        if(v === cur){ alert('Ce pourcentage est déjà en vigueur pour cet agent.'); return; }
+        if(!confirm('Passer le pourcentage de gains de ' + agent.nom + ' de ' + fmtTaux(cur) + ' à ' + fmtTaux(v) + ' pour les ventes faites à partir de maintenant ?\n\nSes ventes déjà faites gardent ' + fmtTaux(cur) + '.')) return;
+        await updateDoc(doc(db, 'agents', agent.id), { taux: v, tauxHistory: agentHistory(agent).concat([{ from: Date.now(), taux: v }]), tauxChangedMs: Date.now() });
+      }
+      else if(act === 'chcode'){
+        const cur = canon(agent.code);
+        const input = prompt('Nouveau code pour ' + agent.nom + '\n\n• 6 à 12 lettres/chiffres, avec au moins 1 lettre ET 1 chiffre (ex : KONE24)\n• ou laissez vide pour un code automatique\n\nCode actuel : ' + cur, '');
+        if(input === null) return;
+        let nouveau;
+        if(!input.trim()){ do{ nouveau = A.makeCode(agent.nom); } while(codeTaken(nouveau)); }
+        else{
+          nouveau = canon(input);
+          const err = A.codeError(nouveau);
+          if(err){ alert(err); return; }
+          if(nouveau === cur){ alert("C'est déjà le code de cet agent."); return; }
+          if(codeTaken(nouveau, agent)){ alert('Ce code est déjà utilisé (ou l\'a été) par un autre agent. Choisissez-en un autre.'); return; }
+        }
+        if(!confirm('Changer le code de ' + agent.nom + ' ?\n\nAncien code : ' + cur + '\nNouveau code : ' + nouveau + '\n\nL\'ancien code n\'ouvrira plus de session. Les ventes déjà faites avec l\'ancien code (même pas encore envoyées) restent acceptées pendant 7 jours.')) return;
+        await updateDoc(doc(db, 'agents', agent.id), {
+          code: nouveau, cred: A.credHash(agent.nom, nouveau),
+          codesAnciens: (agent.codesAnciens || []).concat([{ code: cur, finMs: Date.now() }]), codeChangedMs: Date.now()
+        });
+        showAccess('✅ Code modifié.', agent.nom, nouveau);
+        scheduleSync();
+      }
+      else if(act === 'off'){
+        if(confirm('Désactiver ' + agent.nom + ' ? Il ne pourra plus enregistrer de ventes (ses ventes passées restent comptées).'))
+          await updateDoc(doc(db, 'agents', agent.id), { actif: false, desactiveAt: Date.now() });
+      }
+      else if(act === 'on'){ await updateDoc(doc(db, 'agents', agent.id), { actif: true }); }
+      else if(act === 'del'){
+        if(confirm('Supprimer définitivement ' + agent.nom + ' ?')) await deleteDoc(doc(db, 'agents', agent.id));
+      }
+      else if(act === 'pay'){
+        const ventes = computeVentes();
+        const earned = ventes.filter(v => v.counted && v.agent && v.agent.id === agent.id).reduce((s, v) => s + v.commission, 0);
+        const byCode = agentsByCode();
+        const paidSoFar = st.payouts.filter(p => { const a = (p.agentId && agentById(p.agentId)) || byCode.get(canon(p.agentCode)); return a && a.id === agent.id; }).reduce((s, p) => s + (Number(p.montant) || 0), 0);
+        const due = earned - paidSoFar;
+        const txt = prompt('Montant versé à ' + agent.nom + ' (FCFA) :', String(due));
+        if(txt === null) return;
+        const montant = Math.round(Number(String(txt).replace(/\s/g, '').replace(',', '.')));
+        if(!(montant > 0)){ alert('Montant invalide.'); return; }
+        await addDoc(collection(db, 'agent_payouts'), { agentId: agent.id, agentCode: agent.code, agentNom: agent.nom, montant, atMs: Date.now(), at: serverTimestamp(), note: '' });
+      }
+    }catch(err){ showErr('Action impossible : ' + err.message); }
+  });
+
+  // Actions sur les ventes
+  $('agSales').addEventListener('click', async e => {
+    const b = e.target.closest('button[data-act]'); if(!b) return;
+    const v = ventesByKey(b.dataset.key); if(!v) return;
+    try{
+      if(b.dataset.act === 'exclude'){
+        if(!confirm('Exclure cette vente du calcul des commissions ?')) return;
+        if(v.source === 'en_ligne') await setDoc(doc(db, 'agent_sales', v.key), { statut: 'rejetee', orderId: v.key.slice(2) }, { merge: true });
+        else await updateDoc(doc(db, 'agent_sales', v.key), { statut: 'rejetee' });
+      } else if(b.dataset.act === 'restore'){
+        if(v.source === 'en_ligne') await setDoc(doc(db, 'agent_sales', v.key), { statut: 'confirmee' }, { merge: true });
+        else await updateDoc(doc(db, 'agent_sales', v.key), { statut: (Number(v.montant) > 0 ? 'confirmee' : 'a_traiter') });
+      } else if(b.dataset.act === 'confirm'){
+        const sel = document.querySelector('select[data-sel="' + v.key.replace(/"/g, '') + '"]');
+        const f = FORFAITS.find(x => x.id === (sel && sel.value)); if(!f) return;
+        await updateDoc(doc(db, 'agent_sales', v.key), { statut: 'confirmee', forfaitId: f.id, forfaitLabel: f.label, montant: f.prix, manuel: true, motif: '' });
+      }
+    }catch(err){ showErr('Action impossible : ' + err.message); }
+  });
+
+  // Annuler un versement
+  $('agPayoutsBox').addEventListener('click', async e => {
+    const b = e.target.closest('[data-act="delpay"]'); if(!b) return;
+    if(!confirm('Annuler ce versement ? Le montant sera de nouveau compté comme « reste à payer ».')) return;
+    try{ await deleteDoc(doc(db, 'agent_payouts', b.dataset.id)); }catch(err){ showErr('Action impossible : ' + err.message); }
+  });
+
+  // Ajout manuel d'une vente physique
+  $('agManBtn').addEventListener('click', async () => {
+    const msg = $('agManMsg'); msg.style.color = '#8A1E27'; msg.textContent = '';
+    const agent = agentById($('agManAgent').value);
+    const ticket = $('agManCode').value.trim();
+    if(!agent){ msg.textContent = "Choisissez d'abord un agent (actif)."; return; }
+    if(!ticket){ msg.textContent = 'Tapez le code du ticket vendu.'; return; }
+    try{
+      const code = canon(agent.code);
+      const id = (code + '_' + ticket).replace(/[^A-Za-z0-9_-]/g, '');
+      await setDoc(doc(db, 'agent_sales', id), { agentNom: agent.nom, agentCode: code, ticketCode: ticket, clientTime: Date.now(), mode: 'physique', manuel: true }, { merge: true });
+      $('agManCode').value = '';
+      msg.style.color = '#0A6B4A'; msg.textContent = 'Vente ajoutée : vérification dans le stock en cours.';
+      setTimeout(() => { msg.textContent = ''; }, 4000);
+    }catch(err){ showErr("Impossible d'ajouter la vente : " + err.message); }
+  });
+
+  // Export CSV (ce qui est affiché : période + agent)
+  $('agCsvBtn').addEventListener('click', () => {
+    const rows = window.__agentVentesAffichees || [];
+    const q = s => '"' + String(s == null ? '' : s).replace(/"/g, '""') + '"';
+    const lines = [['Date', 'Agent', 'Code agent', 'Source', 'Forfait', 'Montant FCFA', 'Taux %', 'Commission FCFA', 'Ticket', 'Client', 'Statut'].map(q).join(';')];
+    const statutTxt = { confirmee: 'Confirmée', anomalie: 'À vérifier', a_traiter: 'En vérification', rejetee: 'Exclue' };
+    rows.forEach(v => lines.push([fmtDate(v.at), v.agent ? v.agent.nom : v.agentNom, v.agentCode, v.source === 'en_ligne' ? 'En ligne' : 'Physique', v.forfaitLabel, v.montant, v.counted ? v.taux : '', v.commission, v.ticketCode, v.client, statutTxt[v.statut] || v.statut].map(q).join(';')));
+    const blob = new Blob(['\ufeff' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob); a.download = 'ventes-agents.csv';
+    document.body.appendChild(a); a.click(); a.remove();
+  });
+
+  $('agNewTaux').addEventListener('input', () => { $('agNewTaux').dataset.touched = '1'; });
+  renderAll();
+};
+</script>
+
+<!-- ============================================================
+  CONNEXION ADMINISTRATEUR (Firebase Authentication)
+  - Le mot de passe n'est plus écrit dans le code : il est vérifié par Firebase.
+  - Déjà connecté sur cet appareil => l'espace admin s'ouvre directement.
+============================================================= -->
+<script>
+(function(){
+  function appVisible(){ const a = document.getElementById('app'); return !!a && a.style.display === 'block'; }
+  function maybeUnlock(){
+    if(!/^#admin/.test(location.hash) || appVisible()) return;
+    if(window.__isAdminUser && window.__isAdminUser() && window.__unlockAdmin) window.__unlockAdmin();
+  }
+  window.addEventListener('auth-changed', function(e){
+    if(e.detail && e.detail.admin){ maybeUnlock(); }
+    else if(appVisible()){ location.reload(); }     // session admin terminée : on reverrouille
+  });
+  window.addEventListener('hashchange', maybeUnlock);
+  const out = document.getElementById('adminSignOut');
+  if(out) out.addEventListener('click', async function(){
+    try{ if(window.__adminLogout) await window.__adminLogout(); }catch(e){}
+    location.hash = ''; location.reload();
+  });
+})();
 </script>
 
 </body>
