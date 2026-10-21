@@ -572,3 +572,22 @@ service cloud.firestore {
 
 **Côté admin :** par agent : ventes, chiffre d'affaires, commission, total déjà versé et **reste à payer** (bouton **Régler**), export CSV. Les ventes physiques sont vérifiées automatiquement dans votre stock (le forfait donne le montant, le ticket passe en « vendu ») quand vous ouvrez l'espace admin. Un cas anormal (ticket inconnu, doublon, déjà vendu en ligne…) apparaît **« À vérifier »** et n'est pas compté tant que vous n'avez pas confirmé ou exclu.
 
+## Stock des tickets physiques (vérification automatique des ventes des agents)
+
+Les tickets imprimés que vos agents vendent doivent être dans l'application, **séparés** du stock en ligne : ainsi un ticket imprimé n'est jamais donné par erreur à un client qui achète sur la boutique.
+
+**À faire à chaque fois que vous créez un lot de tickets physiques dans Mikhmon :**
+1. Dans Mikhmon, ouvrez la liste des tickets du forfait (ex. « 1 jour »), puis enregistrez-la en PDF (ou copiez les codes).
+2. Dans l'application : espace admin → **Importer des codes tickets**.
+3. Type : **🎫 Tickets physiques**. Forfait : le même que dans Mikhmon. Choisissez le fichier (ou collez les codes), vérifiez la liste, puis **Ajouter au stock**.
+4. L'application affiche : « X ajoutés · Y déplacés · Z déjà présents, ignorés ». Les codes déjà présents ne sont jamais ajoutés deux fois.
+
+**Ensuite, tout est automatique :** quand un agent vend un ticket physique, la vente remonte et, à l'ouverture de l'espace admin, l'application retrouve le ticket dans le stock physique : le forfait donne le montant, le ticket passe en « vendu », la commission est comptée pour l'agent. Un code absent du stock, un doublon ou un ticket déjà vendu reste **« À vérifier »**.
+
+**Ce que vous voyez :** nouveau bloc **Physiques** sur le tableau de bord, colonne **Physiques** dans « Stock par forfait », et le mot « physique » dans la recherche du Stock.
+
+**Bon à savoir :**
+- Si un code est déjà dans le stock en ligne (même forfait), l'import physique le **déplace** vers le stock physique.
+- Un ticket physique vendu est gardé 30 jours **à partir de sa vente** (pas de sa date d'import) avant le nettoyage automatique.
+- L'application ne peut pas aller chercher les tickets toute seule dans votre routeur (le navigateur ne peut pas joindre un routeur local depuis internet) : l'import d'un lot se fait donc en une fois, quand vous créez les tickets.
+

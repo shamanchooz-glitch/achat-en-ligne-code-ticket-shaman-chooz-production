@@ -308,6 +308,7 @@
   td{padding:8px;border-bottom:1px solid var(--line);font-family:'IBM Plex Mono',monospace;}
   .badge{font-size:10px;padding:3px 8px;border-radius:10px;font-family:'Inter',sans-serif;font-weight:600;}
   .badge.stock{background:#E9F1FF;color:var(--blue-mid);}
+  .badge.physique{background:#F1E8FF;color:#5B2A9E;}
   .badge.vendu{background:#FFF3DA;color:#8A5A00;}
   .badge.utilise{background:#E6FBF3;color:#0A6B4A;}
   .row-action{border:none;background:none;color:var(--blue-mid);font-size:11px;cursor:pointer;text-decoration:underline;}
@@ -741,7 +742,7 @@
           <h2>Stock par forfait</h2>
           <p style="font-size:12px;color:#5A6B8C;margin:0 0 10px;">Touchez une ligne pour voir le détail complet de chaque code (statut, dates, client).</p>
           <table>
-            <thead><tr><th>Forfait</th><th>En stock</th><th>Vendus</th><th>Utilisés</th></tr></thead>
+            <thead><tr><th>Forfait</th><th>En stock</th><th>Physiques</th><th>Vendus</th><th>Utilisés</th></tr></thead>
             <tbody id="forfaitStockTable"></tbody>
           </table>
         </div>
@@ -759,7 +760,13 @@
         <a href="#admin" class="page-back">← Retour</a>
         <div class="card">
           <h2>Importer des codes tickets (depuis l'export Mikhmon)</h2>
-          <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
+          <p style="font-size:12px;color:#5A6B8C;margin:0 0 8px;">Choisissez le type de tickets et le forfait, puis ouvrez votre fichier de vouchers (PDF ou CSV/TXT téléchargé depuis Mikhmon) — les codes seront extraits automatiquement. Vous pouvez aussi les coller à la main.</p>
+          <div class="import-row">
+            <select id="importType">
+              <option value="stock">🛒 Tickets en ligne (vendus par l'application)</option>
+              <option value="physique">🎫 Tickets physiques (imprimés, vendus par les agents)</option>
+            </select>
+          </div>
           <div class="import-row">
             <select id="importForfait"></select>
           </div>
@@ -1993,41 +2000,75 @@
     window.importCodes = async function(){
       const raw = document.getElementById('importCodes').value;
       const forfaitId = importForfait.value;
-      const codes = raw.split('\n').map(s=>s.trim()).filter(Boolean);
+      const typeSel = document.getElementById('importType');
+      const physique = !!typeSel && typeSel.value === 'physique';
+      const codes = [...new Set(raw.split(/[\s,;]+/).map(s=>s.trim()).filter(Boolean))];
       if(codes.length === 0) return;
+      const msgEl = document.getElementById('importMsg');
       try{
-        const batch = writeBatch(db);
-        codes.forEach(code=>{
-          const ref = doc(collection(db,"tickets"));
-          batch.set(ref, { code, forfaitId, statut:"stock", createdAt: serverTimestamp() });
+        msgEl.textContent = 'Vérification des codes déjà présents...';
+        // 1 lecture du stock : on évite d'ajouter 2 fois le même code (en ligne ou physique)
+        const existing = {};
+        (await getDocs(collection(db,"tickets"))).forEach(d=>{
+          const t = d.data();
+          (existing[String(t.code)] = existing[String(t.code)] || []).push({ id:d.id, statut:t.statut, forfaitId:t.forfaitId });
         });
-        await batch.commit();
+        const ops = [];
+        let ajoutes = 0, deplaces = 0, ignores = 0;
+        codes.forEach(code=>{
+          const ex = existing[code];
+          if(!ex){
+            ops.push({ type:'add', data:{ code, forfaitId, statut: physique ? 'physique' : 'stock', origine: physique ? 'physique' : 'en_ligne', createdAt: serverTimestamp() } });
+            ajoutes++;
+          } else if(physique){
+            // déjà au stock "en ligne" avec le même forfait => on le passe en physique (plus jamais donné à un client en ligne)
+            const enLigne = ex.find(e => e.statut === 'stock' && e.forfaitId === forfaitId);
+            if(enLigne){ ops.push({ type:'upd', id:enLigne.id, data:{ statut:'physique', origine:'physique' } }); deplaces++; }
+            else ignores++;
+          } else {
+            ignores++;
+          }
+        });
+        for(let k=0; k<ops.length; k+=400){
+          const batch = writeBatch(db);
+          ops.slice(k, k+400).forEach(o=>{
+            if(o.type === 'add') batch.set(doc(collection(db,"tickets")), o.data);
+            else batch.update(doc(db,"tickets",o.id), o.data);
+          });
+          await batch.commit();
+        }
         document.getElementById('importCodes').value = '';
-        document.getElementById('importMsg').textContent = `${codes.length} code(s) ajouté(s) au stock.`;
-        setTimeout(()=>document.getElementById('importMsg').textContent='', 3000);
+        const parts = [`${ajoutes} code(s) ajouté(s) au stock ${physique ? 'physique' : 'en ligne'}`];
+        if(deplaces) parts.push(`${deplaces} déplacé(s) du stock en ligne vers le stock physique`);
+        if(ignores) parts.push(`${ignores} déjà présent(s) ou d'un autre forfait, ignoré(s)`);
+        msgEl.textContent = parts.join(' · ') + '.';
+        setTimeout(()=>{ msgEl.textContent=''; }, 9000);
       }catch(e){
         console.error(e);
+        msgEl.textContent = '';
         showAdminError("Échec de l'ajout au stock : " + e.message + " — vérifiez que Firestore est créé et que les règles ont été publiées (voir README, Étape 1).");
       }
     };
 
     onSnapshot(collection(db,"tickets"), snap=>{
       const rows = [];
-      let stock=0, vendu=0, utilise=0;
+      let stock=0, vendu=0, utilise=0, physique=0;
       const THIRTY_DAYS = 30*24*60*60*1000;
       const now = Date.now();
       const parForfait = {};
-      FORFAITS.forEach(f=> parForfait[f.id] = { stock:0, vendu:0, utilise:0 });
+      FORFAITS.forEach(f=> parForfait[f.id] = { stock:0, vendu:0, utilise:0, physique:0 });
 
       snap.forEach(d=>{
         const t = d.data();
         if(t.statut==='stock') stock++;
+        if(t.statut==='physique') physique++;
         if(t.statut==='vendu') vendu++;
         if(t.statut==='utilise') utilise++;
         if(parForfait[t.forfaitId]) parForfait[t.forfaitId][t.statut] = (parForfait[t.forfaitId][t.statut]||0) + 1;
 
         const created = t.createdAt?.toMillis ? t.createdAt.toMillis() : now;
-        if((t.statut==='vendu' || t.statut==='utilise') && (now-created) > THIRTY_DAYS){
+        const baseClean = (t.origine==='physique' && t.vendAt?.toMillis) ? t.vendAt.toMillis() : created;
+        if((t.statut==='vendu' || t.statut==='utilise') && (now-baseClean) > THIRTY_DAYS){
           deleteDoc(doc(db,"tickets",d.id));
           return;
         }
@@ -2055,14 +2096,15 @@
 
       document.getElementById('statsBox').innerHTML = `
         <div class="stat"><div class="n">${stock}</div><div class="l">En stock</div></div>
+        <div class="stat"><div class="n">${physique}</div><div class="l">Physiques</div></div>
         <div class="stat"><div class="n">${vendu}</div><div class="l">Vendus</div></div>
         <div class="stat"><div class="n">${utilise}</div><div class="l">Utilisés</div></div>`;
 
       const forfaitTable = document.getElementById('forfaitStockTable');
       if(forfaitTable){
         forfaitTable.innerHTML = FORFAITS.map(f=>{
-          const c = parForfait[f.id] || {stock:0,vendu:0,utilise:0};
-          return `<tr class="row-action" data-forfait-id="${f.id}" style="cursor:pointer;"><td>${f.label}</td><td>${c.stock}</td><td>${c.vendu}</td><td>${c.utilise}</td></tr>`;
+          const c = parForfait[f.id] || {stock:0,vendu:0,utilise:0,physique:0};
+          return `<tr class="row-action" data-forfait-id="${f.id}" style="cursor:pointer;"><td>${f.label}</td><td>${c.stock}</td><td>${c.physique||0}</td><td>${c.vendu}</td><td>${c.utilise}</td></tr>`;
         }).join('');
         forfaitTable.querySelectorAll('tr[data-forfait-id]').forEach(tr=>{
           tr.onclick = ()=> afficherDetailForfait(tr.dataset.forfaitId);
@@ -2094,7 +2136,7 @@
       stockSearch.addEventListener('input', ()=>{
         const q = stockSearch.value.trim().toLowerCase();
         const all = window.__allTicketRows || [];
-        const filtered = q ? all.filter(r => (r.code+' '+r.forfait+' '+(r.phone||'')).toLowerCase().includes(q)) : all;
+        const filtered = q ? all.filter(r => (r.code+' '+r.forfait+' '+r.statut+' '+(r.phone||'')).toLowerCase().includes(q)) : all;
         renderTicketsTable(filtered);
       });
     }
@@ -3078,8 +3120,8 @@ window.__agentsAdminInit = function(){
           if(!code){ await mark('anomalie', 'Code ticket manquant.'); continue; }
           if(claimed.has(code)){ await mark('anomalie', 'Doublon : ce ticket est déjà attribué à une autre vente.'); continue; }
           const snap = await getDocs(query(collection(db, 'tickets'), where('code', '==', code)));
-          if(snap.empty){ await mark('anomalie', 'Code introuvable dans votre stock (code erroné, ou ticket déjà supprimé). Choisissez le forfait pour confirmer.'); continue; }
-          const stockDoc = snap.docs.find(d => d.data().statut === 'stock');
+          if(snap.empty){ await mark('anomalie', 'Code introuvable dans votre stock (code erroné, stock physique pas encore importé, ou ticket déjà supprimé). Choisissez le forfait pour confirmer.'); continue; }
+          const stockDoc = snap.docs.find(d => d.data().statut === 'physique') || snap.docs.find(d => d.data().statut === 'stock');
           if(!stockDoc){
             const t = snap.docs[0].data();
             await mark('anomalie', 'Ce ticket est déjà ' + (t.statut === 'utilise' ? 'utilisé' : 'vendu') + ' (peut-être acheté en ligne) : il n\'a pas été attribué à cet agent. Choisissez le forfait pour confirmer quand même.');
